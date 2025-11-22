@@ -1,3 +1,4 @@
+import React from 'react';
 import { Sword, Shield, Map as MapIcon, Droplet, Gem, Sparkles, ScrollText, Flame, Snowflake, Zap, Sun, Moon, ArrowUpCircle, Layers } from 'lucide-react';
 import { getElementConfig } from '../constants.jsx';
 
@@ -12,13 +13,17 @@ export const ItemIcon = ({ item, size = 24 }) => {
       }
       const el = item.skillData.element || 'none';
       const config = getElementConfig(el);
-      return config?.icon || <ScrollText size={size} className="text-gray-400" />;
+      if (config?.icon) {
+          return React.cloneElement(config.icon, { size });
+      }
+      return <ScrollText size={size} className="text-gray-400" />;
   }
   if (item.type === 'enhancement_stone') return <Sparkles size={size} className="text-yellow-400" />;
   if (item.type === 'enchant_scroll') return <ScrollText size={size} className="text-blue-400" />;
   if (item.type === 'element_stone') {
       const el = item.element || 'none';
-      return getElementConfig(el).icon;
+      const config = getElementConfig(el);
+      return React.cloneElement(config.icon, { size });
   }
   if (item.type === 'special_stone') return <Gem size={size} className="text-purple-400" />;
   if (item.type === 'reroll_scroll') return <ScrollText size={size} className="text-green-400" />;

@@ -47,11 +47,11 @@ export const getElementConfig = (element) => {
 };
 
 export const RARITIES = {
-  common: { color: "text-gray-400", border: "border-gray-600", bg: "bg-gray-800", label: "コモン", mult: 1, optCount: 0, inkSlots: 1 },
-  uncommon: { color: "text-green-400", border: "border-green-600", bg: "bg-green-900/30", label: "アンコモン", mult: 1.5, optCount: 2, inkSlots: 2 },
-  rare: { color: "text-blue-400", border: "border-blue-600", bg: "bg-blue-900/30", label: "レア", mult: 2.5, optCount: 3, inkSlots: 3 },
-  epic: { color: "text-purple-400", border: "border-purple-600", bg: "bg-purple-900/30", label: "エピック", mult: 4, optCount: 4, inkSlots: 4 },
-  legendary: { color: "text-yellow-400", border: "border-yellow-600", bg: "bg-yellow-900/30", label: "レジェンダリー", mult: 7, optCount: 5, inkSlots: 5 },
+  common: { color: "text-gray-400", border: "border-gray-200", bg: "bg-gray-800", label: "コモン", mult: 1, optCount: 0, inkSlots: 1 },
+  uncommon: { color: "text-green-400", border: "border-green-300", bg: "bg-green-900/30", label: "アンコモン", mult: 1.5, optCount: 2, inkSlots: 2 },
+  rare: { color: "text-blue-400", border: "border-blue-300", bg: "bg-blue-900/30", label: "レア", mult: 2.5, optCount: 3, inkSlots: 3 },
+  epic: { color: "text-purple-400", border: "border-purple-300", bg: "bg-purple-900/30", label: "エピック", mult: 4, optCount: 4, inkSlots: 4 },
+  legendary: { color: "text-yellow-400", border: "border-yellow-300", bg: "bg-yellow-900/30", label: "レジェンダリー", mult: 7, optCount: 5, inkSlots: 5 },
 };
 
 export const SKILL_TEMPLATES = [

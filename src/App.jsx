@@ -708,24 +708,28 @@ export default function HackSlashGame() {
     
     if (isEquipmentItem) {
       // 装備品用アイテムの場合はスタック処理
-      setInventory(prev => {
-        const itemIndex = prev.findIndex(i => i.id === item.id);
-        if (itemIndex >= 0) {
-          const updatedItem = prev[itemIndex];
-          if (updatedItem.count && updatedItem.count > 1) {
-            // スタック数を減らす
-            const newList = [...prev];
-            newList[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
-            setWarehouse(prevWarehouse => addEquipmentItemToStack(prevWarehouse, { ...item, count: 1 }));
-            return newList;
-          } else {
-            // スタックが1つだけの場合は移動
-            setWarehouse(prevWarehouse => addEquipmentItemToStack(prevWarehouse, item));
-            return prev.filter(i => i.id !== item.id);
-          }
+      // 現在のインベントリからアイテムを探す
+      const itemIndex = inventory.findIndex(i => i.id === item.id);
+      if (itemIndex >= 0) {
+        const updatedItem = inventory[itemIndex];
+        let itemToMove = null;
+        let newInventory = null;
+        
+        if (updatedItem.count && updatedItem.count > 1) {
+          // スタック数を減らす
+          newInventory = [...inventory];
+          newInventory[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
+          itemToMove = { ...item, count: 1 };
+        } else {
+          // スタックが1つだけの場合は移動
+          newInventory = inventory.filter(i => i.id !== item.id);
+          itemToMove = item;
         }
-        return prev;
-      });
+        
+        // 両方の状態を更新
+        setInventory(newInventory);
+        setWarehouse(prevWarehouse => addEquipmentItemToStack(prevWarehouse, itemToMove));
+      }
     } else {
       // 通常のアイテムはそのまま移動
       if (warehouse.length >= MAX_WAREHOUSE) {
@@ -746,24 +750,28 @@ export default function HackSlashGame() {
     
     if (isEquipmentItem) {
       // 装備品用アイテムの場合はスタック処理
-      setWarehouse(prev => {
-        const itemIndex = prev.findIndex(i => i.id === item.id);
-        if (itemIndex >= 0) {
-          const updatedItem = prev[itemIndex];
-          if (updatedItem.count && updatedItem.count > 1) {
-            // スタック数を減らす
-            const newList = [...prev];
-            newList[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
-            setInventory(prevInventory => addEquipmentItemToStack(prevInventory, { ...item, count: 1 }));
-            return newList;
-          } else {
-            // スタックが1つだけの場合は移動
-            setInventory(prevInventory => addEquipmentItemToStack(prevInventory, item));
-            return prev.filter(i => i.id !== item.id);
-          }
+      // 現在の倉庫からアイテムを探す
+      const itemIndex = warehouse.findIndex(i => i.id === item.id);
+      if (itemIndex >= 0) {
+        const updatedItem = warehouse[itemIndex];
+        let itemToMove = null;
+        let newWarehouse = null;
+        
+        if (updatedItem.count && updatedItem.count > 1) {
+          // スタック数を減らす
+          newWarehouse = [...warehouse];
+          newWarehouse[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
+          itemToMove = { ...item, count: 1 };
+        } else {
+          // スタックが1つだけの場合は移動
+          newWarehouse = warehouse.filter(i => i.id !== item.id);
+          itemToMove = item;
         }
-        return prev;
-      });
+        
+        // 両方の状態を更新
+        setWarehouse(newWarehouse);
+        setInventory(prevInventory => addEquipmentItemToStack(prevInventory, itemToMove));
+      }
     } else {
       // 通常のアイテムはそのまま移動
       if (inventory.length >= MAX_INVENTORY) {
@@ -1673,6 +1681,7 @@ export default function HackSlashGame() {
                                                     if (inkModeItem) attachInk(inkModeItem, item); 
                                                     else setSelectedItem(item);
                                                 }}
+                                                isSelected={selectedItem?.id === item.id}
                                                 onDragStart={(e) => handleDragStart(e, item, 'inventory')}
                                                 onDragEnd={handleDragEnd}
                                                 isDropTarget={dragOverTarget === 'inventory' && draggedItem?.source === 'warehouse'}
@@ -1704,6 +1713,7 @@ export default function HackSlashGame() {
                                                 key={item.id} 
                                                 item={item} 
                                                 onClick={() => setSelectedItem(item)}
+                                                isSelected={selectedItem?.id === item.id}
                                                 onDragStart={(e) => handleDragStart(e, item, 'warehouse')}
                                                 onDragEnd={handleDragEnd}
                                                 isDropTarget={dragOverTarget === 'warehouse' && draggedItem?.source === 'inventory'}
@@ -1927,6 +1937,7 @@ export default function HackSlashGame() {
                                                 setSelectedItem(null);
                                                 setEquipmentItemMode(item);
                                             }}
+                                            isSelected={selectedItem?.id === item.id}
                                             onDragStart={(e) => handleDragStart(e, item, 'inventory')}
                                             onDragEnd={handleDragEnd}
                                             dragSource={draggedItem}
@@ -1992,6 +2003,7 @@ export default function HackSlashGame() {
                                                             useItemOnEquipment(equipmentItemMode, item);
                                                             setEquipmentItemMode(null);
                                                         }}
+                                                        isSelected={selectedItem?.id === item.id}
                                                     />
                                                 ))}
                                                 {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).length === 0 && (

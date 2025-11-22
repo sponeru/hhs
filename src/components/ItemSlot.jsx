@@ -107,8 +107,8 @@ export const ItemSlot = React.memo(({
           onMouseEnter={item ? handleMouseEnter : undefined}
           onMouseLeave={item ? handleMouseLeave : undefined}
           onMouseMove={item ? handleMouseMove : undefined}
-          className={`aspect-square relative rounded-lg p-2 flex flex-col items-center justify-center border-2 transition-all ${item ? 'hover:scale-110 hover:shadow-lg active:scale-95 cursor-pointer' : 'cursor-default'} 
-            ${item ? rarity.bg : 'bg-gray-800'} ${isSelected ? 'border-white shadow-[0_0_15px_white] ring-2 ring-white' : item ? rarity.border : 'border-gray-700'} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-4 ring-blue-500' : ''}`}
+          className={`aspect-square relative rounded-lg p-2 flex flex-col items-center justify-center border-0 transition-all ${item ? 'hover:scale-110 hover:shadow-lg active:scale-95 cursor-pointer' : 'cursor-default'} ${item ? rarity.bg : 'bg-gray-800'} ${item ? rarity.border : 'border-gray-700'} ${isSelected ? 'shadow-[0_0_15px_currentColor] ring-2 ring-white' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-4 ring-blue-500' : ''}`}
+          style={{ borderWidth: '3px', borderStyle: 'solid' }}
       >
           <div className={`${rarity.color} relative`}>
               <ItemIcon item={item} size={calculatedIconSize} />
@@ -138,28 +138,35 @@ export const ItemSlot = React.memo(({
       </button>
       {showTooltip && (
         <div
-          className="fixed z-[9999] pointer-events-none bg-gray-900 border-2 border-gray-700 rounded-lg p-2 shadow-2xl min-w-[180px] max-w-[250px]"
+          className="fixed z-[9999] pointer-events-none bg-gray-900 border-2 border-gray-700 rounded-lg p-3 shadow-2xl min-w-[270px] max-w-[375px]"
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y}px`,
             transform: 'translate(-50%, -100%) translateY(-8px)',
           }}
         >
-          <div className="flex items-center gap-2 mb-1 pb-1 border-b border-gray-700">
-            <div className={`w-6 h-6 rounded flex items-center justify-center border ${rarity.bg} ${rarity.border}`}>
-              <ItemIcon item={item} size={16} />
+          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-700">
+            <div className={`w-9 h-9 rounded flex items-center justify-center border ${rarity.bg} ${rarity.border}`}>
+              <div className={rarity.color}>
+                <ItemIcon item={item} size={24} />
+              </div>
             </div>
             <div className="flex-1 min-w-0">
-              <div className={`text-[10px] font-bold uppercase ${rarity.color} truncate`}>
+              <div className={`text-xs font-bold uppercase ${rarity.color} truncate`}>
                 {rarity.label}
               </div>
-              <div className="text-xs font-bold truncate">{item.name || '無名のアイテム'}</div>
+              <div className="text-sm font-bold truncate">{item.name || '無名のアイテム'}</div>
             </div>
           </div>
-          <div className="text-[10px] space-y-0.5">
+          <div className="text-sm space-y-1">
             {item.type === 'ink' && (
               <div className="text-purple-300">
-                <div>{item.mod.label} {item.mod.val > 0 ? '+' : ''}{item.mod.val}{item.mod.unit || ''}</div>
+                <div>効果: {item.mod.label} {item.mod.val > 0 ? '+' : ''}{item.mod.val}{item.mod.unit || ''}</div>
+                {item.mod.penalty && (
+                  <div className="text-red-400 text-xs mt-1">
+                    デメリット: {item.mod.penalty.type === 'power_down' ? '威力低下' : 'CD増加'} {item.mod.penalty.val * 100}%
+                  </div>
+                )}
               </div>
             )}
             {item.type === 'enhancement_stone' && (
@@ -172,16 +179,44 @@ export const ItemSlot = React.memo(({
                 <div>オプション +1</div>
               </div>
             )}
-            {item.baseStats && Object.entries(item.baseStats).slice(0, 2).map(([k, v]) => (
-              <div key={k} className="text-xs">
-                <span className="text-gray-400">{k}: </span>
+            {item.baseStats && Object.entries(item.baseStats).map(([k, v]) => (
+              <div key={k} className="text-sm">
+                <span className="text-gray-400 uppercase">{k}: </span>
                 <span className="font-bold">{v}</span>
               </div>
             ))}
             {item.skillData && (
-              <div className="text-xs">
-                <span className="text-gray-400">威力: </span>
-                <span className="font-bold">x{item.skillData.power?.toFixed(1) || 'N/A'}</span>
+              <>
+                {item.skillData.level && (
+                  <div className="text-yellow-400 font-bold">Lv.{item.skillData.level}</div>
+                )}
+                <div className="text-sm">
+                  <span className="text-gray-400">タイプ: </span>
+                  <span className="font-bold">{item.skillData.type === 'buff' ? 'BUFF' : item.skillData.type === 'heal' ? 'HEAL' : 'ATTACK'}</span>
+                </div>
+                {item.skillData.power !== undefined && (
+                  <div className="text-sm">
+                    <span className="text-gray-400">威力: </span>
+                    <span className="font-bold">x{typeof item.skillData.power === 'number' ? item.skillData.power.toFixed(1) : item.skillData.power}</span>
+                  </div>
+                )}
+                {item.skillData.cd !== undefined && (
+                  <div className="text-sm">
+                    <span className="text-gray-400">CD: </span>
+                    <span className="font-bold">{item.skillData.cd}s</span>
+                  </div>
+                )}
+              </>
+            )}
+            {item.options && item.options.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-700">
+                <div className="text-sm text-gray-500 mb-1 font-bold">オプション:</div>
+                {item.options.map((opt, idx) => (
+                  <div key={idx} className={`text-sm ${opt.isSpecial ? 'text-yellow-400' : 'text-gray-300'}`}>
+                    {opt.isSpecial && <span className="text-yellow-400">★ </span>}
+                    {opt.label} +{opt.val}{opt.unit || ''}
+                  </div>
+                ))}
               </div>
             )}
           </div>
