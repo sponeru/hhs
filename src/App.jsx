@@ -38,7 +38,7 @@ import { TownView } from './components/views/TownView';
 import { DungeonView } from './components/views/DungeonView';
 import { InkModal } from './components/modals/InkModal';
 import { PortalModal } from './components/modals/PortalModal';
-import { getSlotLabel, getSlotType, EQUIPMENT_SLOTS, EQUIPMENT_TYPES, canStackEquipmentItem, addEquipmentItemToStack } from './utils/gameUtils';
+import { getSlotLabel, getSlotType, EQUIPMENT_SLOTS, EQUIPMENT_TYPES, canStackEquipmentItem, addEquipmentItemToStack, getCharacterList, getCurrentCharacterId, setCurrentCharacterId, createCharacter, deleteCharacter, getCharacterSaveData, saveCharacterData, updateCharacter } from './utils/gameUtils';
 
 
 // ==========================================
@@ -68,13 +68,31 @@ export default function HackSlashGame() {
   const [draggedItem, setDraggedItem] = useState(null); // ドラッグ中のアイテム
   const [dragOverTarget, setDragOverTarget] = useState(null); // ドラッグオーバー中のターゲット
   const [optionDisplayMode, setOptionDisplayMode] = useState('merged'); // 'merged' (統合), 'composite' (複合表示), 'split' (個別)
+  const [currentCharacterId, setCurrentCharacterIdState] = useState(null); // 現在のキャラクターID
+  const [characters, setCharacters] = useState([]); // キャラクターリスト
   
-  // 初期ロード: 初回のみ実行
-  useEffect(() => {
-    const saved = localStorage.getItem('hackslash_save_v7');
-    if (saved) {
+  // キャラクターのロード
+  const loadCharacter = (characterId) => {
+    if (!characterId) return;
+    
+    // 後方互換性: 古いセーブデータ（`hackslash_save_v7`）がある場合、最初のキャラクターとして移行
+    const oldSave = localStorage.getItem('hackslash_save_v7');
+    if (oldSave && getCharacterList().length === 0) {
       try {
-        const data = JSON.parse(saved);
+        const data = JSON.parse(oldSave);
+        const migratedChar = createCharacter('キャラクター1');
+        saveCharacterData(migratedChar.id, data);
+        setCurrentCharacterId(migratedChar.id);
+        localStorage.removeItem('hackslash_save_v7'); // 古いセーブを削除
+        characterId = migratedChar.id;
+      } catch (e) {
+        console.error("Failed to migrate old save", e);
+      }
+    }
+    
+    const data = getCharacterSaveData(characterId);
+    if (data) {
+      try {
         setPlayer({
           ...INITIAL_PLAYER,
           ...data.player,
@@ -88,35 +106,89 @@ export default function HackSlashGame() {
         setWarehouse(data.warehouse || []);
         setStones(data.stones || []);
         setPhase('town');
-        // 初期ロード後、addLogが利用可能になったらログを追加
+        setActiveDungeon(null);
+        setEnemy(null);
         setTimeout(() => {
           setLogs(p => [{id: Date.now()+Math.random(), msg: "セーブデータをロードしました", color: 'green'}, ...p].slice(0, 10));
         }, 100);
-      } catch (e) { 
+      } catch (e) {
         console.error("Save corrupted", e);
         setTimeout(() => {
           setLogs(p => [{id: Date.now()+Math.random(), msg: "セーブデータの読み込みに失敗しました", color: 'red'}, ...p].slice(0, 10));
         }, 100);
       }
     } else {
+      // 新規キャラクター
+      setPlayer(INITIAL_PLAYER);
+      setEquipment(INITIAL_EQUIPMENT);
+      setInventory([]);
+      setWarehouse([]);
+      setStones([]);
+      setPhase('town');
+      setActiveDungeon(null);
+      setEnemy(null);
       setTimeout(() => {
         setLogs(p => [{id: Date.now()+Math.random(), msg: "新規ゲームを開始しました", color: 'blue'}, ...p].slice(0, 10));
       }, 100);
     }
+  };
+  
+  // 初期ロード: 初回のみ実行
+  useEffect(() => {
+    // キャラクターリストを読み込み
+    const charList = getCharacterList();
+    setCharacters(charList);
+    
+    // 後方互換性: 古いセーブデータがある場合、移行
+    const oldSave = localStorage.getItem('hackslash_save_v7');
+    if (oldSave && charList.length === 0) {
+      try {
+        const data = JSON.parse(oldSave);
+        const migratedChar = createCharacter('キャラクター1');
+        saveCharacterData(migratedChar.id, data);
+        setCurrentCharacterId(migratedChar.id);
+        localStorage.removeItem('hackslash_save_v7');
+        setCharacters([migratedChar]);
+        loadCharacter(migratedChar.id);
+      } catch (e) {
+        console.error("Failed to migrate old save", e);
+        setIsInitialLoad(false);
+      }
+      return;
+    }
+    
+    // 現在のキャラクターIDを取得または最初のキャラクターを選択
+    let currentId = getCurrentCharacterId();
+    if (!currentId && charList.length > 0) {
+      currentId = charList[0].id;
+      setCurrentCharacterId(currentId);
+    }
+    
+    setCurrentCharacterIdState(currentId);
+    
+    if (currentId) {
+      loadCharacter(currentId);
+    } else {
+      setTimeout(() => {
+        setLogs(p => [{id: Date.now()+Math.random(), msg: "新規ゲームを開始しました", color: 'blue'}, ...p].slice(0, 10));
+      }, 100);
+    }
+    
     setIsInitialLoad(false);
   }, []);
 
   // 自動セーブ: 初期ロード完了後のみ実行
   useEffect(() => {
     if (isInitialLoad) return; // 初期ロード中は自動セーブしない
+    if (!currentCharacterId) return; // キャラクターが選択されていない場合はセーブしない
     
     try {
       const data = { player, equipment, inventory, warehouse, stones };
-      localStorage.setItem('hackslash_save_v7', JSON.stringify(data));
+      saveCharacterData(currentCharacterId, data);
     } catch (e) {
       console.error("Auto-save failed", e);
     }
-  }, [player, equipment, inventory, warehouse, stones, isInitialLoad]);
+  }, [player, equipment, inventory, warehouse, stones, isInitialLoad, currentCharacterId]);
 
   // --- Core Logic ---
 
@@ -1084,6 +1156,10 @@ export default function HackSlashGame() {
 
   // 手動セーブ機能
   const manualSave = () => {
+    if (!currentCharacterId) {
+      addLog("キャラクターが選択されていません", 'red');
+      return;
+    }
     try {
       const data = { 
         player, 
@@ -1093,7 +1169,7 @@ export default function HackSlashGame() {
         stones,
         timestamp: new Date().toISOString()
       };
-      localStorage.setItem('hackslash_save_v7', JSON.stringify(data));
+      saveCharacterData(currentCharacterId, data);
       addLog("セーブしました", 'green');
       
       // トースト的な通知（視覚的フィードバック）
@@ -1110,49 +1186,139 @@ export default function HackSlashGame() {
 
   // 手動ロード機能
   const manualLoad = () => {
-    const saved = localStorage.getItem('hackslash_save_v7');
-    if (saved) {
+    if (!currentCharacterId) {
+      addLog("キャラクターが選択されていません", 'red');
+      return;
+    }
+    
+    // ダンジョン中なら警告を表示
+    if (phase === 'dungeon') {
+      if (!confirm('ダンジョン中にロードすると、現在の進行状況が失われます。続行しますか？')) {
+        return;
+      }
+    }
+    
+    loadCharacter(currentCharacterId);
+    addLog("ロードしました", 'green');
+    
+    // ロード通知
+    const loadToast = document.createElement('div');
+    loadToast.textContent = 'ロード完了！';
+    loadToast.style.cssText = 'position:fixed;top:20px;right:20px;background:blue;color:white;padding:10px 20px;border-radius:5px;z-index:10000;';
+    document.body.appendChild(loadToast);
+    setTimeout(() => document.body.removeChild(loadToast), 2000);
+  };
+  
+  // キャラクター切り替え
+  const switchCharacter = (characterId) => {
+    // 現在のキャラクターをセーブ
+    if (currentCharacterId && currentCharacterId !== characterId) {
       try {
-        const data = JSON.parse(saved);
-        
-        // ダンジョン中なら警告を表示
-        if (phase === 'dungeon') {
-          if (!confirm('ダンジョン中にロードすると、現在の進行状況が失われます。続行しますか？')) {
-            return;
-          }
+        const data = { player, equipment, inventory, warehouse, stones };
+        saveCharacterData(currentCharacterId, data);
+      } catch (e) {
+        console.error("Auto-save before switch failed", e);
+      }
+    }
+    
+    // ダンジョン中なら警告を表示
+    if (phase === 'dungeon') {
+      if (!confirm('ダンジョン中にキャラクターを切り替えると、現在の進行状況が失われます。続行しますか？')) {
+        return;
+      }
+    }
+    
+    setCurrentCharacterId(characterId);
+    setCurrentCharacterIdState(characterId);
+    loadCharacter(characterId);
+    
+    // キャラクターリストを更新
+    const updatedChars = getCharacterList();
+    setCharacters(updatedChars);
+    
+    addLog("キャラクターを切り替えました", 'blue');
+  };
+  
+  // キャラクター作成
+  const createNewCharacter = (name) => {
+    try {
+      if (!name || !name.trim()) {
+        addLog("キャラクター名を入力してください", 'red');
+        return;
+      }
+      
+      // 現在のキャラクターをセーブ
+      if (currentCharacterId) {
+        try {
+          const data = { player, equipment, inventory, warehouse, stones };
+          saveCharacterData(currentCharacterId, data);
+        } catch (e) {
+          console.error("Auto-save before create failed", e);
         }
-        
-        setPlayer({
-          ...INITIAL_PLAYER,
-          ...data.player,
-          skillPoints: data.player.skillPoints || 0,
-          learnedSkills: data.player.learnedSkills || {},
-          mp: data.player.mp !== undefined ? data.player.mp : (50 + ((data.player.level || 1) - 1) * 5),
-          maxMp: data.player.maxMp !== undefined ? data.player.maxMp : (50 + ((data.player.level || 1) - 1) * 5),
-          buffs: [], // ロード時はバフをリセット
-        });
-        setEquipment({...INITIAL_EQUIPMENT, ...data.equipment}); 
-        setInventory(data.inventory || []);
-        setWarehouse(data.warehouse || []);
-        setStones(data.stones || []);
+      }
+      
+      const newChar = createCharacter(name.trim());
+      if (!newChar || !newChar.id) {
+        addLog("キャラクターの作成に失敗しました", 'red');
+        console.error("Failed to create character: ", newChar);
+        return;
+      }
+      
+      const updatedChars = getCharacterList();
+      setCharacters(updatedChars);
+      setCurrentCharacterId(newChar.id);
+      setCurrentCharacterIdState(newChar.id);
+      
+      // 新規キャラクターの状態をリセット
+      setPlayer(INITIAL_PLAYER);
+      setEquipment(INITIAL_EQUIPMENT);
+      setInventory([]);
+      setWarehouse([]);
+      setStones([]);
+      setPhase('town');
+      setActiveDungeon(null);
+      setEnemy(null);
+      
+      addLog(`キャラクター「${newChar.name}」を作成しました`, 'green');
+    } catch (e) {
+      console.error("Failed to create character:", e);
+      addLog(`キャラクターの作成に失敗しました: ${e.message}`, 'red');
+    }
+  };
+  
+  // キャラクター削除
+  const deleteCharacterById = (characterId) => {
+    if (characters.length <= 1) {
+      addLog("最後のキャラクターは削除できません", 'red');
+      return;
+    }
+    
+    if (!confirm('このキャラクターを削除してもよろしいですか？削除すると元に戻せません。')) {
+      return;
+    }
+    
+    const remainingChars = deleteCharacter(characterId);
+    setCharacters(remainingChars);
+    
+    // 削除したキャラクターが現在選択中の場合、別のキャラクターに切り替え
+    if (currentCharacterId === characterId) {
+      if (remainingChars.length > 0) {
+        switchCharacter(remainingChars[0].id);
+      } else {
+        setCurrentCharacterId(null);
+        setCurrentCharacterIdState(null);
+        setPlayer(INITIAL_PLAYER);
+        setEquipment(INITIAL_EQUIPMENT);
+        setInventory([]);
+        setWarehouse([]);
+        setStones([]);
         setPhase('town');
         setActiveDungeon(null);
         setEnemy(null);
-        addLog("ロードしました", 'green');
-        
-        // ロード通知
-        const loadToast = document.createElement('div');
-        loadToast.textContent = 'ロード完了！';
-        loadToast.style.cssText = 'position:fixed;top:20px;right:20px;background:blue;color:white;padding:10px 20px;border-radius:5px;z-index:10000;';
-        document.body.appendChild(loadToast);
-        setTimeout(() => document.body.removeChild(loadToast), 2000);
-      } catch (e) {
-        console.error("Manual load failed", e);
-        addLog("ロードに失敗しました: " + e.message, 'red');
       }
-    } else {
-      addLog("セーブデータが見つかりません", 'red');
     }
+    
+    addLog("キャラクターを削除しました", 'red');
   };
 
   const attachInk = (scroll, ink) => {
@@ -1837,6 +2003,11 @@ export default function HackSlashGame() {
         manualSave={manualSave}
         manualLoad={manualLoad}
         returnToTown={returnToTown}
+        currentCharacterId={currentCharacterId}
+        characters={characters}
+        switchCharacter={switchCharacter}
+        createNewCharacter={createNewCharacter}
+        deleteCharacterById={deleteCharacterById}
       />
 
       <main className="flex-1 relative flex overflow-hidden">

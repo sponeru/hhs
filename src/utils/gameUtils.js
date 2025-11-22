@@ -67,3 +67,127 @@ export const addEquipmentItemToStack = (itemList, newItem) => {
   }
 };
 
+// ==========================================
+// キャラクター管理ユーティリティ
+// ==========================================
+
+const CHARACTERS_KEY = 'hackslash_characters';
+const CURRENT_CHARACTER_KEY = 'hackslash_current_character';
+
+// キャラクターリストを取得
+export const getCharacterList = () => {
+  try {
+    const saved = localStorage.getItem(CHARACTERS_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error("Failed to load character list", e);
+  }
+  return [];
+};
+
+// キャラクターリストを保存
+export const saveCharacterList = (characters) => {
+  try {
+    localStorage.setItem(CHARACTERS_KEY, JSON.stringify(characters));
+  } catch (e) {
+    console.error("Failed to save character list", e);
+  }
+};
+
+// 現在のキャラクターIDを取得
+export const getCurrentCharacterId = () => {
+  return localStorage.getItem(CURRENT_CHARACTER_KEY) || null;
+};
+
+// 現在のキャラクターIDを設定
+export const setCurrentCharacterId = (characterId) => {
+  if (characterId) {
+    localStorage.setItem(CURRENT_CHARACTER_KEY, characterId);
+  } else {
+    localStorage.removeItem(CURRENT_CHARACTER_KEY);
+  }
+};
+
+// キャラクターを作成
+export const createCharacter = (name) => {
+  const characters = getCharacterList();
+  const newId = `char_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const newCharacter = {
+    id: newId,
+    name: name || `キャラクター${characters.length + 1}`,
+    createdAt: new Date().toISOString(),
+    lastPlayed: new Date().toISOString(),
+  };
+  characters.push(newCharacter);
+  saveCharacterList(characters);
+  return newCharacter;
+};
+
+// キャラクターを削除
+export const deleteCharacter = (characterId) => {
+  const characters = getCharacterList();
+  const filtered = characters.filter(c => c.id !== characterId);
+  saveCharacterList(filtered);
+  
+  // セーブデータも削除
+  const saveKey = `hackslash_save_v7_${characterId}`;
+  localStorage.removeItem(saveKey);
+  
+  // 削除したキャラクターが現在選択中の場合は、選択を解除
+  if (getCurrentCharacterId() === characterId) {
+    if (filtered.length > 0) {
+      setCurrentCharacterId(filtered[0].id);
+    } else {
+      setCurrentCharacterId(null);
+    }
+  }
+  
+  return filtered;
+};
+
+// キャラクター情報を更新（最終プレイ日時など）
+export const updateCharacter = (characterId, updates) => {
+  const characters = getCharacterList();
+  const updated = characters.map(c => {
+    if (c.id === characterId) {
+      return { ...c, ...updates };
+    }
+    return c;
+  });
+  saveCharacterList(updated);
+  return updated.find(c => c.id === characterId);
+};
+
+// キャラクターのセーブデータを取得
+export const getCharacterSaveData = (characterId) => {
+  const saveKey = `hackslash_save_v7_${characterId}`;
+  try {
+    const saved = localStorage.getItem(saveKey);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error("Failed to load character save data", e);
+  }
+  return null;
+};
+
+// キャラクターのセーブデータを保存
+export const saveCharacterData = (characterId, data) => {
+  const saveKey = `hackslash_save_v7_${characterId}`;
+  try {
+    const saveData = {
+      ...data,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem(saveKey, JSON.stringify(saveData));
+    
+    // 最終プレイ日時を更新
+    updateCharacter(characterId, { lastPlayed: new Date().toISOString() });
+  } catch (e) {
+    console.error("Failed to save character data", e);
+  }
+};
+
