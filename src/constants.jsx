@@ -11,6 +11,8 @@ export const INITIAL_PLAYER = {
   gold: 0,
   hp: 100,
   maxHp: 100,
+  mp: 50,
+  maxMp: 50,
   stats: { str: 5, vit: 5, dex: 5 },
   statPoints: 0,
   skillPoints: 0,
@@ -29,6 +31,7 @@ export const INITIAL_EQUIPMENT = {
 
 export const MAX_INVENTORY = 25;
 export const MAX_STONES = 10;
+export const MAX_WAREHOUSE = 100; // 倉庫の最大容量
 export const ELEMENTS = ['fire', 'ice', 'thunder', 'light', 'dark'];
 
 export const getElementConfig = (element) => {
@@ -52,13 +55,13 @@ export const RARITIES = {
 };
 
 export const SKILL_TEMPLATES = [
-  { name: "ファイアボール", type: 'attack', element: 'fire', power: 2.5, cd: 3 },
-  { name: "アイスニードル", type: 'attack', element: 'ice', power: 2.2, cd: 3 },
-  { name: "サンダーボルト", type: 'attack', element: 'thunder', power: 2.8, cd: 4 },
-  { name: "ホーリーレイ", type: 'attack', element: 'light', power: 3.0, cd: 5 },
-  { name: "ダークマター", type: 'attack', element: 'dark', power: 3.5, cd: 6 },
-  { name: "メテオストライク", type: 'attack', element: 'fire', power: 5.0, cd: 10, rarity: 'legendary' },
-  { name: "ヒールライト", type: 'heal', element: 'light', power: 50, cd: 10, label: "HP回復" },
+  { name: "ファイアボール", type: 'attack', element: 'fire', power: 2.5, cd: 1.5, mpCost: 10 },
+  { name: "アイスニードル", type: 'attack', element: 'ice', power: 2.2, cd: 1.5, mpCost: 10 },
+  { name: "サンダーボルト", type: 'attack', element: 'thunder', power: 2.8, cd: 2.0, mpCost: 12 },
+  { name: "ホーリーレイ", type: 'attack', element: 'light', power: 3.0, cd: 2.5, mpCost: 15 },
+  { name: "ダークマター", type: 'attack', element: 'dark', power: 3.5, cd: 3.0, mpCost: 18 },
+  { name: "メテオストライク", type: 'attack', element: 'fire', power: 5.0, cd: 5.0, mpCost: 30, rarity: 'legendary' },
+  { name: "ヒールライト", type: 'heal', element: 'light', power: 50, cd: 10, label: "HP回復", mpCost: 20 },
   { name: "バーサーク", type: 'buff', element: 'fire', buffType: 'atk', val: 0.5, duration: 10, cd: 20, label: "攻撃UP" },
   { name: "アイアンガード", type: 'buff', element: 'none', buffType: 'def', val: 20, duration: 15, cd: 20, label: "防御UP" },
   { name: "クイックステップ", type: 'buff', element: 'thunder', buffType: 'cdSpeed', val: 0.5, duration: 10, cd: 25, label: "CD加速" },

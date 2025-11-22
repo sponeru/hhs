@@ -146,22 +146,40 @@ export const generateLoot = (floor, dungeonMods = {}) => {
     const templates = SKILL_TEMPLATES.filter(s => !s.rarity || s.rarity === rarityKey);
     const template = templates.length > 0 ? templates[randomInt(0, templates.length - 1)] : SKILL_TEMPLATES[0];
     baseName = `${template.name}の巻物`;
+    
+    // スキルレベル1～20をランダムに付与
+    const skillLevel = randomInt(1, 20);
+    
+    // レベルに応じた必要能力値（レベル×5）
+    const requiredStat = skillLevel * 5;
+    
     skillData = { ...template };
-    skillData.power = template.type === 'attack' ? template.power + (power * 0.01) : template.power + Math.floor(power/2);
+    skillData.level = skillLevel;
+    skillData.requiredStat = requiredStat; // 装備に必要な能力値
+    skillData.power = template.type === 'attack' ? template.power * (1 + (skillLevel - 1) * 0.05) + (power * 0.01) : template.power + Math.floor(power/2) * skillLevel;
+    
+    // MPコストもレベルに応じて増加（攻撃スキルの場合）
+    if (template.type === 'attack' && template.mpCost) {
+      skillData.mpCost = Math.floor(template.mpCost * (1 + (skillLevel - 1) * 0.1));
+    } else if (template.mpCost) {
+      skillData.mpCost = template.mpCost;
+    }
+    
     inkSlots = RARITIES[rarityKey].inkSlots;
-  } else if (typeRoll < 0.95) {
+  } else if (typeRoll < 0.85) {
     return generateInk(floor);
   } else {
-    // 装備品用アイテムを生成
+    // 装備品用アイテムを生成（15%の確率）
     const equipItem = generateEquipmentItem(floor);
     if (equipItem) return equipItem;
+    // 装備品用アイテムが生成できなかった場合はインクを生成
     return generateInk(floor);
   }
 
   const options = type === 'skill' ? [] : generateOptions(rarityKey, power, dungeonMods);
   const prefix = type === 'skill' ? '' : ITEM_PREFIXES[Math.min(Math.floor(floor / 10), ITEM_PREFIXES.length - 1)];
   
-  return {
+  const item = {
     id: Date.now() + Math.random().toString(36).substr(2, 9),
     name: `${prefix}${baseName}`,
     type,
@@ -174,6 +192,13 @@ export const generateLoot = (floor, dungeonMods = {}) => {
     power: Math.floor(power),
     isNew: true
   };
+  
+  // 巻物の場合、名前にレベルを追加
+  if (type === 'skill' && skillData && skillData.level) {
+    item.name = `${baseName} Lv.${skillData.level}`;
+  }
+  
+  return item;
 };
 
 export const generateMagicStone = (floor) => {
@@ -234,6 +259,7 @@ export const generateEnhancementStone = (floor) => {
     type: 'enhancement_stone',
     rarity: template.rarity,
     mult: template.mult,
+    count: 1,
     isNew: true
   };
 };
@@ -252,6 +278,7 @@ export const generateEnchantScroll = (floor) => {
     type: 'enchant_scroll',
     rarity: template.rarity,
     powerMult: template.powerMult,
+    count: 1,
     isNew: true
   };
 };
@@ -271,6 +298,7 @@ export const generateElementStone = (floor) => {
     rarity: template.rarity,
     element: template.element,
     value: template.value,
+    count: 1,
     isNew: true
   };
 };
@@ -290,6 +318,7 @@ export const generateSpecialStone = (floor) => {
     rarity: template.rarity,
     specialType: template.type,
     value: template.value,
+    count: 1,
     isNew: true
   };
 };
@@ -308,6 +337,7 @@ export const generateRerollScroll = (floor) => {
     type: 'reroll_scroll',
     rarity: template.rarity,
     powerMult: template.powerMult,
+    count: 1,
     isNew: true
   };
 };
@@ -326,6 +356,7 @@ export const generateOptionSlotStone = (floor) => {
     type: 'option_slot_stone',
     rarity: template.rarity,
     slots: template.slots,
+    count: 1,
     isNew: true
   };
 };
@@ -344,6 +375,7 @@ export const generateRarityUpgradeStone = (floor) => {
     type: 'rarity_upgrade_stone',
     rarity: template.rarity,
     upgrades: template.upgrades,
+    count: 1,
     isNew: true
   };
 };
@@ -351,13 +383,61 @@ export const generateRarityUpgradeStone = (floor) => {
 // 装備品用アイテムをランダムに生成
 export const generateEquipmentItem = (floor) => {
   const rand = Math.random();
-  if (rand < 0.15) return generateEnhancementStone(floor);
-  if (rand < 0.25) return generateEnchantScroll(floor);
-  if (rand < 0.30) return generateRerollScroll(floor);
-  if (rand < 0.35) return generateElementStone(floor);
-  if (rand < 0.38) return generateSpecialStone(floor);
-  if (rand < 0.40) return generateOptionSlotStone(floor);
-  if (rand < 0.42) return generateRarityUpgradeStone(floor);
+  
+  // フロアに応じて確率を調整
+  // 低フロアでは基本的なアイテム（強化石、エンチャントスクロール）が多く出る
+  // 高フロアでは高級アイテム（レアリティアップグレード石など）も出る
+  
+  if (rand < 0.30) {
+    // 強化石（30%）
+    const stone = generateEnhancementStone(floor);
+    if (stone) return stone;
+  }
+  if (rand < 0.50) {
+    // エンチャントスクロール（20%）
+    const scroll = generateEnchantScroll(floor);
+    if (scroll) return scroll;
+  }
+  if (rand < 0.60) {
+    // リロールスクロール（10%）
+    const reroll = generateRerollScroll(floor);
+    if (reroll) return reroll;
+  }
+  if (rand < 0.70) {
+    // 属性付与石（10%）
+    const element = generateElementStone(floor);
+    if (element) return element;
+  }
+  if (rand < 0.80) {
+    // 特殊強化アイテム（10%）
+    const special = generateSpecialStone(floor);
+    if (special) return special;
+  }
+  if (rand < 0.90) {
+    // オプション枠拡張石（10%）
+    const slot = generateOptionSlotStone(floor);
+    if (slot) return slot;
+  }
+  if (rand < 1.0) {
+    // レアリティアップグレード石（10%）
+    const rarity = generateRarityUpgradeStone(floor);
+    if (rarity) return rarity;
+  }
+  
+  // どのアイテムも生成できなかった場合、フロアに応じた最低限のアイテムを生成
+  if (floor >= 1) {
+    // 最低でも強化石を生成（フロア1以上）
+    return {
+      id: 'enhance_' + Date.now() + Math.random(),
+      name: "小さな強化石",
+      type: 'enhancement_stone',
+      rarity: 'common',
+      mult: 0.05,
+      count: 1,
+      isNew: true
+    };
+  }
+  
   return null;
 };
 

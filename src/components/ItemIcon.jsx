@@ -7,8 +7,12 @@ export const ItemIcon = ({ item, size = 24 }) => {
   if (item.type === 'stone') return <MapIcon size={size} />;
   if (item.type === 'ink') return <Droplet size={size} className="text-purple-400" />;
   if (item.type === 'skill') {
-      const el = item.skillData?.element || 'none';
-      return getElementConfig(el).icon;
+      if (!item.skillData) {
+          return <ScrollText size={size} className="text-gray-400" />;
+      }
+      const el = item.skillData.element || 'none';
+      const config = getElementConfig(el);
+      return config?.icon || <ScrollText size={size} className="text-gray-400" />;
   }
   if (item.type === 'enhancement_stone') return <Sparkles size={size} className="text-yellow-400" />;
   if (item.type === 'enchant_scroll') return <ScrollText size={size} className="text-blue-400" />;

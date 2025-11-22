@@ -267,14 +267,14 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
             return (
               <div
                 key={skill.id}
-                className={`absolute rounded-lg border-2 transition-all group ${
+                className={`absolute rounded-lg transition-all group ${
                   isLearned
-                    ? 'bg-green-900/40 border-green-500 shadow-lg shadow-green-500/20'
+                    ? 'bg-green-900/40 shadow-lg shadow-green-500/20'
                     : canLearn
-                      ? `${getCategoryColor(skill.category)} hover:shadow-lg hover:scale-110 cursor-pointer`
+                      ? `${getCategoryColor(skill.category)} hover:shadow-lg hover:scale-110 cursor-pointer border-2`
                       : isUnlocked
-                        ? 'bg-gray-800/40 border-gray-600 opacity-60'
-                        : 'bg-gray-900/40 border-gray-700 opacity-30'
+                        ? 'bg-gray-800/40 border-gray-600 opacity-60 border-2'
+                        : 'bg-gray-900/40 border-gray-700 opacity-30 border-2'
                 }`}
                 style={{
                   left: `${pos.x}px`,
@@ -402,40 +402,6 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
             />
           </div>
         )}
-      </div>
-      
-      {/* スキル詳細パネル */}
-      <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-4">習得済みスキル</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {SKILL_TREE.filter(skill => getSkillLevel(skill.id) > 0).map(skill => {
-            const level = getSkillLevel(skill.id);
-            return (
-              <div key={skill.id} className={`${getCategoryColor(skill.category)} border-2 rounded-lg p-4`}>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="text-2xl">{skill.icon}</div>
-                  <div>
-                    <div className="font-bold text-white">{skill.name}</div>
-                    <div className="text-xs text-gray-400">習得済み</div>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-300 mb-2">{skill.description}</div>
-                {skill.levelData && level > 0 && (
-                  <div className="mt-2 text-xs text-blue-300">
-                    効果: {skill.levelData.effect} +{skill.levelData.value}
-                    {skill.levelData.bonus && ` (ボーナス: ${skill.levelData.bonus.effect} +${skill.levelData.bonus.value})`}
-                    {skill.levelData.penalty && ` (ペナルティ: ${skill.levelData.penalty.effect} ${skill.levelData.penalty.value})`}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {SKILL_TREE.filter(skill => getSkillLevel(skill.id) > 0).length === 0 && (
-            <div className="col-span-full text-center text-gray-500 py-8">
-              習得済みスキルがありません
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

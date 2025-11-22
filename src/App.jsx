@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Heart, Coins, Trophy, Backpack, Sword, Map as MapIcon, 
-  ArrowRight, LogOut, Flame, ChevronsUp, Sparkles
+  ArrowRight, LogOut, Flame, ChevronsUp, Sparkles, Warehouse,
+  Save, Upload, Hammer
 } from 'lucide-react';
 
 import {
@@ -9,6 +10,7 @@ import {
   INITIAL_EQUIPMENT,
   MAX_INVENTORY,
   MAX_STONES,
+  MAX_WAREHOUSE,
   RARITIES,
   RARITY_ORDER,
   getElementConfig,
@@ -21,6 +23,7 @@ import {
   generateLoot,
   generateMagicStone,
   generateOptions,
+  generateEquipmentItem,
 } from './utils/gameLogic';
 
 import { ItemSlot } from './components/ItemSlot';
@@ -37,6 +40,7 @@ export default function HackSlashGame() {
   const [player, setPlayer] = useState(INITIAL_PLAYER);
   const [equipment, setEquipment] = useState(INITIAL_EQUIPMENT);
   const [inventory, setInventory] = useState([]);
+  const [warehouse, setWarehouse] = useState([]); // 倉庫
   const [stones, setStones] = useState([]); 
   
   const [activeDungeon, setActiveDungeon] = useState(null); 
@@ -44,12 +48,17 @@ export default function HackSlashGame() {
   const [skillCds, setSkillCds] = useState([0, 0, 0]);
   
   const [logs, setLogs] = useState([]);
-  const [tab, setTab] = useState('portal'); 
+  const [tab, setTab] = useState('portal');
+  const [warehouseTab, setWarehouseTab] = useState(false); // 倉庫タブの表示状態
   const [floatingTexts, setFloatingTexts] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [inkModeItem, setInkModeItem] = useState(null);
-  const [equipmentItemMode, setEquipmentItemMode] = useState(null); // 装備品用アイテム使用モード
+  const [equipmentItemMode, setEquipmentItemMode] = useState(null); // 装備品用アイテム使用モード（後方互換性のため残す）
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // 初期ロード完了フラグ
+  const [draggedItem, setDraggedItem] = useState(null); // ドラッグ中のアイテム
+  const [dragOverTarget, setDragOverTarget] = useState(null); // ドラッグオーバー中のターゲット
   
+  // 初期ロード: 初回のみ実行
   useEffect(() => {
     const saved = localStorage.getItem('hackslash_save_v7');
     if (saved) {
@@ -60,19 +69,43 @@ export default function HackSlashGame() {
           ...data.player,
           skillPoints: data.player.skillPoints || 0,
           learnedSkills: data.player.learnedSkills || {},
+          mp: data.player.mp !== undefined ? data.player.mp : (50 + ((data.player.level || 1) - 1) * 5),
+          maxMp: data.player.maxMp !== undefined ? data.player.maxMp : (50 + ((data.player.level || 1) - 1) * 5),
         });
         setEquipment({...INITIAL_EQUIPMENT, ...data.equipment}); 
         setInventory(data.inventory || []);
+        setWarehouse(data.warehouse || []);
         setStones(data.stones || []);
-        setPhase('town'); 
-      } catch (e) { console.error("Save corrupted"); }
+        setPhase('town');
+        // 初期ロード後、addLogが利用可能になったらログを追加
+        setTimeout(() => {
+          setLogs(p => [{id: Date.now()+Math.random(), msg: "セーブデータをロードしました", color: 'green'}, ...p].slice(0, 10));
+        }, 100);
+      } catch (e) { 
+        console.error("Save corrupted", e);
+        setTimeout(() => {
+          setLogs(p => [{id: Date.now()+Math.random(), msg: "セーブデータの読み込みに失敗しました", color: 'red'}, ...p].slice(0, 10));
+        }, 100);
+      }
+    } else {
+      setTimeout(() => {
+        setLogs(p => [{id: Date.now()+Math.random(), msg: "新規ゲームを開始しました", color: 'blue'}, ...p].slice(0, 10));
+      }, 100);
     }
+    setIsInitialLoad(false);
   }, []);
 
+  // 自動セーブ: 初期ロード完了後のみ実行
   useEffect(() => {
-    const data = { player, equipment, inventory, stones };
-    localStorage.setItem('hackslash_save_v7', JSON.stringify(data));
-  }, [player, equipment, inventory, stones]);
+    if (isInitialLoad) return; // 初期ロード中は自動セーブしない
+    
+    try {
+      const data = { player, equipment, inventory, warehouse, stones };
+      localStorage.setItem('hackslash_save_v7', JSON.stringify(data));
+    } catch (e) {
+      console.error("Auto-save failed", e);
+    }
+  }, [player, equipment, inventory, warehouse, stones, isInitialLoad]);
 
   // --- Core Logic ---
 
@@ -212,7 +245,10 @@ export default function HackSlashGame() {
     setPhase('dungeon');
     setTab('battle');
     setSkillCds([0,0,0]);
-    setPlayer(p => ({...p, buffs: []})); 
+    setPlayer(p => {
+      const maxMp = p.maxMp || 50 + (p.level - 1) * 5;
+      return {...p, buffs: [], mp: maxMp, maxMp: maxMp};
+    }); 
     addLog(`${stoneName} (F${floor}〜F${floor+maxFloor})に入場`, 'yellow');
   };
 
@@ -221,7 +257,10 @@ export default function HackSlashGame() {
     setTab('portal');
     setActiveDungeon(null);
     setEnemy(null);
-    setPlayer(p => ({...p, hp: getStats.maxHp, buffs: []})); 
+    setPlayer(p => {
+      const maxMp = p.maxMp || 50 + (p.level - 1) * 5;
+      return {...p, hp: getStats.maxHp, mp: maxMp, buffs: []};
+    }); 
     addLog("街に帰還しました", 'blue');
   };
 
@@ -342,6 +381,17 @@ export default function HackSlashGame() {
 
       const skillItem = equipment[`skill${slotNum}`];
       if (!skillItem) return;
+      
+      // MPコストをチェック（攻撃スキルの場合）
+      const base = skillItem.skillData;
+      if (base && base.mpCost && base.type === 'attack') {
+        if (player.mp < base.mpCost) {
+          addLog(`MPが足りません（必要: ${base.mpCost}、現在: ${player.mp}）`, 'red');
+          return;
+        }
+        // MPを消費
+        setPlayer(p => ({ ...p, mp: Math.max(0, p.mp - base.mpCost) }));
+      }
 
       applySkillEffects(skillItem, idx);
   };
@@ -352,8 +402,6 @@ export default function HackSlashGame() {
     const isCrit = Math.random() * 100 < getStats.crit;
     let dmg = Math.floor(getStats.atk * (Math.random() * 0.4 + 0.8));
     if (isCrit) dmg = Math.floor(dmg * (1.5 + (getStats.critDmg / 100)));
-
-    setSkillCds(prev => prev.map(cd => Math.max(0, cd - 0.5)));
 
     spawnFloatingText(dmg, isCrit ? 'yellow' : 'white', isCrit);
     
@@ -391,6 +439,9 @@ export default function HackSlashGame() {
       newPlayer.statPoints += 3;
       newPlayer.skillPoints = (newPlayer.skillPoints || 0) + 1;
       newPlayer.hp = getStats.maxHp;
+      // MPも回復
+      newPlayer.maxMp = 50 + (newPlayer.level - 1) * 5;
+      newPlayer.mp = newPlayer.maxMp;
       addLog(`Level Up! ${newPlayer.level} (+1スキルポイント)`, 'yellow');
     }
     setPlayer(newPlayer);
@@ -418,15 +469,97 @@ export default function HackSlashGame() {
     }, 600);
   };
 
+  // 装備品用アイテムがスタック可能かチェック
+  const canStackEquipmentItem = (item1, item2) => {
+    if (!item1 || !item2) return false;
+    if (item1.type !== item2.type) return false;
+    if (item1.rarity !== item2.rarity) return false;
+    
+    // タイプごとに効果値を比較
+    if (item1.type === 'enhancement_stone') {
+      return item1.mult === item2.mult;
+    } else if (item1.type === 'enchant_scroll' || item1.type === 'reroll_scroll') {
+      return item1.powerMult === item2.powerMult;
+    } else if (item1.type === 'element_stone') {
+      return item1.element === item2.element && item1.value === item2.value;
+    } else if (item1.type === 'special_stone') {
+      return item1.specialType === item2.specialType && item1.value === item2.value;
+    } else if (item1.type === 'option_slot_stone') {
+      return item1.slots === item2.slots;
+    } else if (item1.type === 'rarity_upgrade_stone') {
+      return item1.upgrades === item2.upgrades;
+    }
+    
+    return false;
+  };
+
+  // 装備品用アイテムをスタック可能なアイテムに追加
+  const addEquipmentItemToStack = (itemList, newItem) => {
+    const equipmentItemTypes = ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'];
+    
+    // 装備品用アイテムでない場合はそのまま追加
+    if (!equipmentItemTypes.includes(newItem.type)) {
+      return [...itemList, newItem];
+    }
+    
+    // スタック可能なアイテムを探す
+    const stackIndex = itemList.findIndex(existingItem => canStackEquipmentItem(existingItem, newItem));
+    
+    if (stackIndex >= 0) {
+      // スタックする
+      const updatedList = [...itemList];
+      updatedList[stackIndex] = {
+        ...updatedList[stackIndex],
+        count: (updatedList[stackIndex].count || 1) + 1,
+        isNew: newItem.isNew || updatedList[stackIndex].isNew // 新しいアイテムが来た場合はisNewを維持
+      };
+      return updatedList;
+    } else {
+      // スタックできない場合は新規追加
+      return [...itemList, { ...newItem, count: newItem.count || 1 }];
+    }
+  };
+
   const distributeLoot = (floor, dMods, isBoss) => {
       const dropRate = isBoss ? 1.0 : 0.35;
       const dropCount = isBoss ? (1 + (dMods.reward_drop || 0)) : 1;
 
       for(let i=0; i<dropCount; i++) {
-          if (Math.random() < dropRate && inventory.length < MAX_INVENTORY) {
-              const loot = generateLoot(floor, dMods);
-              setInventory(prev => [...prev, loot]);
-              addLog(`${loot.name}を拾った`, 'blue');
+          if (Math.random() < dropRate) {
+              // インベントリまたは倉庫に空きがあるかチェック
+              const hasInventorySpace = inventory.length < MAX_INVENTORY;
+              const hasWarehouseSpace = warehouse.length < MAX_WAREHOUSE;
+              
+              if (hasInventorySpace || hasWarehouseSpace) {
+                  const loot = generateLoot(floor, dMods);
+                  if (hasInventorySpace) {
+                      setInventory(prev => addEquipmentItemToStack(prev, loot));
+                  } else {
+                      setWarehouse(prev => addEquipmentItemToStack(prev, loot));
+                  }
+                  addLog(`${loot.name}を拾った`, 'blue');
+              } else {
+                  addLog('インベントリと倉庫が一杯です', 'red');
+              }
+          }
+      }
+      
+      // 装備品用アイテムの追加ドロップ（ボス戦では確実に1つ、通常敵では低確率）
+      const equipmentItemRate = isBoss ? 0.8 : 0.15;
+      if (Math.random() < equipmentItemRate) {
+          const hasInventorySpace = inventory.length < MAX_INVENTORY;
+          const hasWarehouseSpace = warehouse.length < MAX_WAREHOUSE;
+          
+          if (hasInventorySpace || hasWarehouseSpace) {
+              const equipItem = generateEquipmentItem(floor);
+              if (equipItem) {
+                  if (hasInventorySpace) {
+                      setInventory(prev => addEquipmentItemToStack(prev, equipItem));
+                  } else {
+                      setWarehouse(prev => addEquipmentItemToStack(prev, equipItem));
+                  }
+                  addLog(`${equipItem.name}を拾った`, 'green');
+              }
           }
       }
       
@@ -482,6 +615,16 @@ export default function HackSlashGame() {
   };
   
   const equipItem = (item, slotIndex = null) => { 
+    // 巻物の場合、必要能力値をチェック
+    if (item.type === 'skill' && item.skillData && item.skillData.requiredStat) {
+      const requiredStat = item.skillData.requiredStat;
+      const totalStats = getStats.str + getStats.vit + getStats.dex;
+      if (totalStats < requiredStat) {
+        addLog(`装備できません。必要能力値: ${requiredStat}（現在: ${totalStats}）`, 'red');
+        return;
+      }
+    }
+    
     let slot = item.type;
     if (item.type === 'skill') {
         if (!slotIndex) {
@@ -516,12 +659,352 @@ export default function HackSlashGame() {
   };
 
   const sellItem = (item) => {
-    const value = item.type === 'stone' ? item.tier * 10 : Math.floor(item.power * 2);
-    setPlayer(p => ({ ...p, gold: p.gold + value }));
-    if (item.type === 'stone') setStones(prev => prev.filter(i => i.id !== item.id));
-    else setInventory(prev => prev.filter(i => i.id !== item.id));
+    const equipmentItemTypes = ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'];
+    const isEquipmentItem = equipmentItemTypes.includes(item.type);
+    
+    const value = item.type === 'stone' ? item.tier * 10 : Math.floor((item.power || 1) * 2);
+    const sellCount = item.count || 1;
+    const totalValue = value * sellCount;
+    
+    setPlayer(p => ({ ...p, gold: p.gold + totalValue }));
+    
+    if (item.type === 'stone') {
+      setStones(prev => prev.filter(i => i.id !== item.id));
+    } else if (warehouseTab) {
+      setWarehouse(prev => {
+        const itemIndex = prev.findIndex(i => i.id === item.id);
+        if (itemIndex >= 0 && isEquipmentItem && prev[itemIndex].count && prev[itemIndex].count > 1) {
+          const newList = [...prev];
+          newList[itemIndex] = { ...prev[itemIndex], count: prev[itemIndex].count - sellCount };
+          if (newList[itemIndex].count <= 0) {
+            return prev.filter(i => i.id !== item.id);
+          }
+          return newList;
+        }
+        return prev.filter(i => i.id !== item.id);
+      });
+    } else {
+      setInventory(prev => {
+        const itemIndex = prev.findIndex(i => i.id === item.id);
+        if (itemIndex >= 0 && isEquipmentItem && prev[itemIndex].count && prev[itemIndex].count > 1) {
+          const newList = [...prev];
+          newList[itemIndex] = { ...prev[itemIndex], count: prev[itemIndex].count - sellCount };
+          if (newList[itemIndex].count <= 0) {
+            return prev.filter(i => i.id !== item.id);
+          }
+          return newList;
+        }
+        return prev.filter(i => i.id !== item.id);
+      });
+    }
     setSelectedItem(null);
-    addLog(`売却 (+${value}G)`, 'gray');
+    addLog(`売却 (+${totalValue}G${sellCount > 1 ? ` x${sellCount}` : ''})`, 'gray');
+  };
+
+  // 倉庫機能: インベントリから倉庫へ移動
+  const moveToWarehouse = (item) => {
+    const equipmentItemTypes = ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'];
+    const isEquipmentItem = equipmentItemTypes.includes(item.type);
+    
+    if (isEquipmentItem) {
+      // 装備品用アイテムの場合はスタック処理
+      setInventory(prev => {
+        const itemIndex = prev.findIndex(i => i.id === item.id);
+        if (itemIndex >= 0) {
+          const updatedItem = prev[itemIndex];
+          if (updatedItem.count && updatedItem.count > 1) {
+            // スタック数を減らす
+            const newList = [...prev];
+            newList[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
+            setWarehouse(prevWarehouse => addEquipmentItemToStack(prevWarehouse, { ...item, count: 1 }));
+            return newList;
+          } else {
+            // スタックが1つだけの場合は移動
+            setWarehouse(prevWarehouse => addEquipmentItemToStack(prevWarehouse, item));
+            return prev.filter(i => i.id !== item.id);
+          }
+        }
+        return prev;
+      });
+    } else {
+      // 通常のアイテムはそのまま移動
+      if (warehouse.length >= MAX_WAREHOUSE) {
+        alert("倉庫が一杯です");
+        return;
+      }
+      setInventory(prev => prev.filter(i => i.id !== item.id));
+      setWarehouse(prev => [...prev, item]);
+    }
+    setSelectedItem(null);
+    addLog(`${item.name}を倉庫に移動`, 'blue');
+  };
+
+  // 倉庫機能: 倉庫からインベントリへ移動
+  const moveToInventory = (item) => {
+    const equipmentItemTypes = ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'];
+    const isEquipmentItem = equipmentItemTypes.includes(item.type);
+    
+    if (isEquipmentItem) {
+      // 装備品用アイテムの場合はスタック処理
+      setWarehouse(prev => {
+        const itemIndex = prev.findIndex(i => i.id === item.id);
+        if (itemIndex >= 0) {
+          const updatedItem = prev[itemIndex];
+          if (updatedItem.count && updatedItem.count > 1) {
+            // スタック数を減らす
+            const newList = [...prev];
+            newList[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
+            setInventory(prevInventory => addEquipmentItemToStack(prevInventory, { ...item, count: 1 }));
+            return newList;
+          } else {
+            // スタックが1つだけの場合は移動
+            setInventory(prevInventory => addEquipmentItemToStack(prevInventory, item));
+            return prev.filter(i => i.id !== item.id);
+          }
+        }
+        return prev;
+      });
+    } else {
+      // 通常のアイテムはそのまま移動
+      if (inventory.length >= MAX_INVENTORY) {
+        alert("インベントリが一杯です");
+        return;
+      }
+      setWarehouse(prev => prev.filter(i => i.id !== item.id));
+      setInventory(prev => [...prev, item]);
+    }
+    setSelectedItem(null);
+    addLog(`${item.name}をインベントリに移動`, 'blue');
+  };
+
+  // ドラッグアンドドロップ: ドラッグ開始
+  const handleDragStart = (e, item, source) => {
+    setDraggedItem({ item, source }); // source: 'inventory' | 'warehouse' | 'equipment'
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/json', JSON.stringify({ itemId: item.id, source }));
+  };
+
+  // ドラッグアンドドロップ: ドラッグ終了
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverTarget(null);
+  };
+
+  // ドラッグアンドドロップ: ドラッグオーバー
+  const handleDragOver = (e, target) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverTarget(target);
+  };
+
+  // ドラッグアンドドロップ: ドロップ
+  const handleDrop = (e, target) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    const { item, source } = draggedItem;
+
+    // 同じ場所へのドロップは無視
+    if (source === target) {
+      setDraggedItem(null);
+      setDragOverTarget(null);
+      return;
+    }
+
+    // 装備スロットへのドロップ
+    if (target.startsWith('equipment_')) {
+      const slot = target.replace('equipment_', '');
+      let canEquip = false;
+      
+      if (slot === 'skill1' || slot === 'skill2' || slot === 'skill3') {
+        if (item.type === 'skill') {
+          canEquip = true;
+          const slotNum = parseInt(slot.replace('skill', ''));
+          
+          // 倉庫からの場合はインベントリに移動
+          if (source === 'warehouse') {
+            if (inventory.length >= MAX_INVENTORY && !equipment[slot]) {
+              addLog('インベントリが一杯です', 'red');
+              setDraggedItem(null);
+              setDragOverTarget(null);
+              return;
+            }
+            setWarehouse(prev => prev.filter(i => i.id !== item.id));
+          }
+          
+          // 装備処理
+          const oldItem = equipment[slot];
+          setEquipment(prev => ({ ...prev, [slot]: item }));
+          
+          // 古い装備をインベントリに戻す
+          if (oldItem && oldItem.id !== item.id) {
+            if (source === 'inventory') {
+              setInventory(prev => {
+                const filtered = prev.filter(i => i.id !== item.id);
+                return [...filtered, oldItem];
+              });
+            } else {
+              // 倉庫からの場合、古い装備をインベントリに追加
+              if (inventory.length < MAX_INVENTORY) {
+                setInventory(prev => [...prev, oldItem]);
+              } else if (warehouse.length < MAX_WAREHOUSE) {
+                setWarehouse(prev => [...prev, oldItem]);
+              }
+            }
+          } else if (source === 'inventory') {
+            setInventory(prev => prev.filter(i => i.id !== item.id));
+          }
+          
+          addLog(`${item.name}を装備しました`, 'green');
+        } else {
+          addLog('スキルスロットにはスキルのみ装備できます', 'red');
+        }
+      } else if (slot === 'weapon' || slot === 'armor' || slot === 'accessory') {
+        if (item.type === slot) {
+          canEquip = true;
+          
+          // 倉庫からの場合はインベントリに移動
+          if (source === 'warehouse') {
+            if (inventory.length >= MAX_INVENTORY && !equipment[slot]) {
+              addLog('インベントリが一杯です', 'red');
+              setDraggedItem(null);
+              setDragOverTarget(null);
+              return;
+            }
+            setWarehouse(prev => prev.filter(i => i.id !== item.id));
+          }
+          
+          // 装備処理
+          const oldItem = equipment[slot];
+          setEquipment(prev => ({ ...prev, [slot]: item }));
+          
+          // 古い装備をインベントリに戻す
+          if (oldItem && oldItem.id !== item.id) {
+            if (source === 'inventory') {
+              setInventory(prev => {
+                const filtered = prev.filter(i => i.id !== item.id);
+                return [...filtered, oldItem];
+              });
+            } else {
+              // 倉庫からの場合、古い装備をインベントリに追加
+              if (inventory.length < MAX_INVENTORY) {
+                setInventory(prev => [...prev, oldItem]);
+              } else if (warehouse.length < MAX_WAREHOUSE) {
+                setWarehouse(prev => [...prev, oldItem]);
+              }
+            }
+          } else if (source === 'inventory') {
+            setInventory(prev => prev.filter(i => i.id !== item.id));
+          }
+          
+          addLog(`${item.name}を装備しました`, 'green');
+        } else {
+          addLog(`このスロットには${slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}のみ装備できます`, 'red');
+        }
+      }
+      
+      if (!canEquip) {
+        setDraggedItem(null);
+        setDragOverTarget(null);
+        return;
+      }
+    }
+    // インベントリ ↔ 倉庫
+    else if ((source === 'inventory' && target === 'warehouse')) {
+      moveToWarehouse(item);
+    } else if (source === 'warehouse' && target === 'inventory') {
+      moveToInventory(item);
+    }
+    // 装備スロットからのドロップ（インベントリへ）
+    else if (source.startsWith('equipment_') && target === 'inventory') {
+      const slot = source.replace('equipment_', '');
+      unequipItem(slot);
+    }
+    // 装備スロットからのドロップ（倉庫へ）
+    else if (source.startsWith('equipment_') && target === 'warehouse') {
+      const slot = source.replace('equipment_', '');
+      const eqItem = equipment[slot];
+      if (eqItem) {
+        unequipItem(slot);
+        moveToWarehouse(eqItem);
+      }
+    }
+
+    setDraggedItem(null);
+    setDragOverTarget(null);
+  };
+
+  // 手動セーブ機能
+  const manualSave = () => {
+    try {
+      const data = { 
+        player, 
+        equipment, 
+        inventory, 
+        warehouse, 
+        stones,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('hackslash_save_v7', JSON.stringify(data));
+      addLog("セーブしました", 'green');
+      
+      // トースト的な通知（視覚的フィードバック）
+      const saveToast = document.createElement('div');
+      saveToast.textContent = 'セーブ完了！';
+      saveToast.style.cssText = 'position:fixed;top:20px;right:20px;background:green;color:white;padding:10px 20px;border-radius:5px;z-index:10000;';
+      document.body.appendChild(saveToast);
+      setTimeout(() => document.body.removeChild(saveToast), 2000);
+    } catch (e) {
+      console.error("Manual save failed", e);
+      addLog("セーブに失敗しました: " + e.message, 'red');
+    }
+  };
+
+  // 手動ロード機能
+  const manualLoad = () => {
+    const saved = localStorage.getItem('hackslash_save_v7');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        
+        // ダンジョン中なら警告を表示
+        if (phase === 'dungeon') {
+          if (!confirm('ダンジョン中にロードすると、現在の進行状況が失われます。続行しますか？')) {
+            return;
+          }
+        }
+        
+        setPlayer({
+          ...INITIAL_PLAYER,
+          ...data.player,
+          skillPoints: data.player.skillPoints || 0,
+          learnedSkills: data.player.learnedSkills || {},
+          mp: data.player.mp !== undefined ? data.player.mp : (50 + ((data.player.level || 1) - 1) * 5),
+          maxMp: data.player.maxMp !== undefined ? data.player.maxMp : (50 + ((data.player.level || 1) - 1) * 5),
+          buffs: [], // ロード時はバフをリセット
+        });
+        setEquipment({...INITIAL_EQUIPMENT, ...data.equipment}); 
+        setInventory(data.inventory || []);
+        setWarehouse(data.warehouse || []);
+        setStones(data.stones || []);
+        setPhase('town');
+        setActiveDungeon(null);
+        setEnemy(null);
+        addLog("ロードしました", 'green');
+        
+        // ロード通知
+        const loadToast = document.createElement('div');
+        loadToast.textContent = 'ロード完了！';
+        loadToast.style.cssText = 'position:fixed;top:20px;right:20px;background:blue;color:white;padding:10px 20px;border-radius:5px;z-index:10000;';
+        document.body.appendChild(loadToast);
+        setTimeout(() => document.body.removeChild(loadToast), 2000);
+      } catch (e) {
+        console.error("Manual load failed", e);
+        addLog("ロードに失敗しました: " + e.message, 'red');
+      }
+    } else {
+      addLog("セーブデータが見つかりません", 'red');
+    }
   };
 
   const attachInk = (scroll, ink) => {
@@ -536,12 +1019,27 @@ export default function HackSlashGame() {
   };
 
   // 装備品用アイテムを使用
-  const useItemOnEquipment = (item, targetEquipment) => {
+  const useItemOnEquipment = (item, targetEquipment, isFromWarehouse = false) => {
     if (!item || !targetEquipment) return;
     
     // 装備品用アイテムでない場合はスキップ
     const equipmentItemTypes = ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'];
     if (!equipmentItemTypes.includes(item.type)) return;
+
+    // 倉庫からの装備品を使用する場合、一時的にインベントリに移動する必要がある
+    if (isFromWarehouse) {
+      const warehouseItem = warehouse.find(i => i.id === targetEquipment.id);
+      if (warehouseItem) {
+        // インベントリに空きがない場合はエラー
+        if (inventory.length >= MAX_INVENTORY) {
+          addLog('インベントリが一杯です。倉庫の装備品を使用するにはインベントリに空きが必要です', 'red');
+          return;
+        }
+        // 倉庫からインベントリに一時的に移動
+        setWarehouse(prev => prev.filter(i => i.id !== targetEquipment.id));
+        setInventory(prev => [...prev, targetEquipment]);
+      }
+    }
 
     let updatedEquipment = { ...targetEquipment };
     let success = false;
@@ -705,12 +1203,45 @@ export default function HackSlashGame() {
       if (slotKey) {
         setEquipment(prev => ({ ...prev, [slotKey]: updatedEquipment }));
       } else {
-        // インベントリ内のアイテムを更新
+        // インベントリ内のアイテムを更新（倉庫から移動した場合も含む）
+        // 倉庫から移動した場合は既にインベントリに追加されているので、そのまま更新
         setInventory(prev => prev.map(i => i.id === targetEquipment.id ? updatedEquipment : i));
       }
       
-      // 使用したアイテムを削除
-      setInventory(prev => prev.filter(i => i.id !== item.id));
+      // 使用したアイテムを削除またはスタック数を減らす
+      setInventory(prev => {
+        const itemIndex = prev.findIndex(i => i.id === item.id);
+        if (itemIndex >= 0) {
+          const updatedItem = prev[itemIndex];
+          if (updatedItem.count && updatedItem.count > 1) {
+            // スタック数を減らす
+            const newList = [...prev];
+            newList[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
+            return newList;
+          } else {
+            // スタックが1つだけの場合は削除
+            return prev.filter(i => i.id !== item.id);
+          }
+        }
+        return prev;
+      });
+      
+      // 倉庫から使用した場合も同様に処理
+      setWarehouse(prev => {
+        const itemIndex = prev.findIndex(i => i.id === item.id);
+        if (itemIndex >= 0) {
+          const updatedItem = prev[itemIndex];
+          if (updatedItem.count && updatedItem.count > 1) {
+            const newList = [...prev];
+            newList[itemIndex] = { ...updatedItem, count: updatedItem.count - 1 };
+            return newList;
+          } else {
+            return prev.filter(i => i.id !== item.id);
+          }
+        }
+        return prev;
+      });
+      
       setEquipmentItemMode(null);
       setSelectedItem(null);
       addLog(message, 'green');
@@ -774,6 +1305,7 @@ export default function HackSlashGame() {
                 <div className="flex items-center gap-2 text-sm">
                     <div className="text-blue-400 font-bold">Lv.{player.level}</div>
                     <div className="text-green-400 font-bold">{player.hp} / {getStats.maxHp}</div>
+                    <div className="text-cyan-400 font-bold">{player.mp} / {player.maxMp || 50}</div>
                 </div>
             )}
         </div>
@@ -785,8 +1317,23 @@ export default function HackSlashGame() {
                 </button>
                 <button onClick={() => setTab('inventory')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'inventory' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                     <Backpack size={20} className="inline mr-2" />
-                    <span className="hidden md:inline">インベントリ</span>
-                    {inventory.length >= MAX_INVENTORY && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900" />}
+                    <span className="hidden md:inline">インベントリ・倉庫</span>
+                    {(inventory.length >= MAX_INVENTORY || warehouse.length >= MAX_WAREHOUSE) && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900" />}
+                </button>
+                <button onClick={() => setTab('equipment')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'equipment' ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                    <Hammer size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">装備強化</span>
+                    {inventory.filter(i => ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'].includes(i.type)).length > 0 && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-900" />
+                    )}
+                </button>
+                <button onClick={manualSave} className="px-4 py-2 rounded-lg transition-all bg-green-700 text-white hover:bg-green-600" title="手動セーブ">
+                    <Save size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">セーブ</span>
+                </button>
+                <button onClick={manualLoad} className="px-4 py-2 rounded-lg transition-all bg-blue-700 text-white hover:bg-blue-600" title="手動ロード">
+                    <Upload size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">ロード</span>
                 </button>
                 <button onClick={() => setTab('stats')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'stats' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                     <Trophy size={20} className="inline mr-2" />
@@ -800,10 +1347,20 @@ export default function HackSlashGame() {
                 </button>
             </div>
         ) : (
-            <button onClick={returnToTown} className="bg-red-900/50 text-red-200 px-4 py-2 rounded-lg border border-red-800 flex items-center gap-2 hover:bg-red-900 transition-all">
-                <LogOut size={16} /> 
-                <span className="hidden md:inline">帰還</span>
-            </button>
+            <div className="flex gap-3">
+                <button onClick={returnToTown} className="bg-red-900/50 text-red-200 px-4 py-2 rounded-lg border border-red-800 flex items-center gap-2 hover:bg-red-900 transition-all">
+                    <LogOut size={16} /> 
+                    <span className="hidden md:inline">帰還</span>
+                </button>
+                <button onClick={manualSave} className="px-4 py-2 rounded-lg transition-all bg-green-700 text-white hover:bg-green-600" title="手動セーブ">
+                    <Save size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">セーブ</span>
+                </button>
+                <button onClick={manualLoad} className="px-4 py-2 rounded-lg transition-all bg-blue-700 text-white hover:bg-blue-600" title="手動ロード">
+                    <Upload size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">ロード</span>
+                </button>
+            </div>
         )}
       </header>
 
@@ -859,6 +1416,10 @@ export default function HackSlashGame() {
                                 <div className="flex justify-between items-center bg-gray-800 p-2 rounded text-xs">
                                     <span className="text-gray-400">最大HP</span>
                                     <span className="text-green-400 font-bold">{getStats.maxHp}</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-gray-800 p-2 rounded text-xs">
+                                    <span className="text-gray-400">最大MP</span>
+                                    <span className="text-cyan-400 font-bold">{player.maxMp || 50}</span>
                                 </div>
                                 <div className="flex justify-between items-center bg-gray-800 p-2 rounded text-xs">
                                     <span className="text-gray-400">会心率</span>
@@ -1016,16 +1577,36 @@ export default function HackSlashGame() {
 
                     {tab === 'inventory' && (
                         <div className="p-8 bg-gray-900 min-h-full">
-                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                                <Backpack size={28} className="text-blue-500" /> インベントリ
-                            </h2>
+                            {/* 装備スロット */}
                             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
                                 <div className="text-sm text-gray-400 mb-4">装備スロット</div>
                                 <div className="flex justify-center gap-6 mb-6">
                                     {['weapon', 'armor', 'accessory'].map(slot => (
-                                        <div key={slot} className="flex flex-col items-center gap-2">
-                                            <div className="w-20 h-20">
-                                                <ItemSlot item={equipment[slot]} onClick={() => setSelectedItem({...equipment[slot], isEquipped: true})} isEquipped={true} iconSize={40} />
+                                        <div 
+                                            key={slot} 
+                                            className="flex flex-col items-center gap-2"
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                handleDragOver(e, `equipment_${slot}`);
+                                            }}
+                                            onDrop={(e) => handleDrop(e, `equipment_${slot}`)}
+                                            onDragLeave={() => {
+                                                if (dragOverTarget === `equipment_${slot}`) {
+                                                    setDragOverTarget(null);
+                                                }
+                                            }}
+                                        >
+                                            <div className={`w-20 h-20 ${dragOverTarget === `equipment_${slot}` ? 'ring-4 ring-blue-500 rounded-lg' : ''}`}>
+                                                <ItemSlot 
+                                                    item={equipment[slot]} 
+                                                    onClick={() => equipment[slot] && setSelectedItem({...equipment[slot], isEquipped: true})} 
+                                                    isEquipped={true} 
+                                                    iconSize={40}
+                                                    onDragStart={equipment[slot] ? (e) => handleDragStart(e, equipment[slot], `equipment_${slot}`) : undefined}
+                                                    onDragEnd={handleDragEnd}
+                                                    isDropTarget={dragOverTarget === `equipment_${slot}`}
+                                                    dragSource={draggedItem}
+                                                />
                                             </div>
                                             <span className="text-xs text-gray-500 uppercase">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
                                         </div>
@@ -1033,26 +1614,109 @@ export default function HackSlashGame() {
                                 </div>
                                 <div className="flex justify-center gap-4 pt-4 border-t border-gray-700">
                                     {[1, 2, 3].map(num => (
-                                        <div key={`skill${num}`} className="flex flex-col items-center gap-2">
-                                            <div className="w-16 h-16">
-                                                <ItemSlot item={equipment[`skill${num}`]} onClick={() => setSelectedItem({...equipment[`skill${num}`], isEquipped: true})} isEquipped={true} iconSize={32} />
+                                        <div 
+                                            key={`skill${num}`} 
+                                            className="flex flex-col items-center gap-2"
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                handleDragOver(e, `equipment_skill${num}`);
+                                            }}
+                                            onDrop={(e) => handleDrop(e, `equipment_skill${num}`)}
+                                            onDragLeave={() => {
+                                                if (dragOverTarget === `equipment_skill${num}`) {
+                                                    setDragOverTarget(null);
+                                                }
+                                            }}
+                                        >
+                                            <div className={`w-16 h-16 ${dragOverTarget === `equipment_skill${num}` ? 'ring-4 ring-blue-500 rounded-lg' : ''}`}>
+                                                <ItemSlot 
+                                                    item={equipment[`skill${num}`]} 
+                                                    onClick={() => equipment[`skill${num}`] && setSelectedItem({...equipment[`skill${num}`], isEquipped: true})} 
+                                                    isEquipped={true} 
+                                                    iconSize={32}
+                                                    onDragStart={equipment[`skill${num}`] ? (e) => handleDragStart(e, equipment[`skill${num}`], `equipment_skill${num}`) : undefined}
+                                                    onDragEnd={handleDragEnd}
+                                                    isDropTarget={dragOverTarget === `equipment_skill${num}`}
+                                                    dragSource={draggedItem}
+                                                />
                                             </div>
                                             <span className="text-xs text-gray-500 uppercase">スキル {num}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
-                                {inventory.map(item => (
-                                    <ItemSlot 
-                                        key={item.id} 
-                                        item={item} 
-                                        onClick={() => {
-                                            if (inkModeItem) attachInk(inkModeItem, item); 
-                                            else setSelectedItem(item);
-                                        }} 
-                                    />
-                                ))}
+
+                            {/* インベントリと倉庫を並べて表示 */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* インベントリ */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                                            <Backpack size={24} className="text-blue-500" /> インベントリ ({inventory.length}/{MAX_INVENTORY})
+                                        </h3>
+                                    </div>
+                                    <div 
+                                        className={`grid grid-cols-6 md:grid-cols-8 gap-3 p-4 rounded-lg border-2 ${dragOverTarget === 'inventory' && draggedItem?.source === 'warehouse' ? 'border-blue-500 bg-blue-900/20' : 'border-gray-700 bg-gray-800/50'}`}
+                                        onDragOver={(e) => handleDragOver(e, 'inventory')}
+                                        onDrop={(e) => handleDrop(e, 'inventory')}
+                                        onDragLeave={() => {
+                                            if (dragOverTarget === 'inventory') {
+                                                setDragOverTarget(null);
+                                            }
+                                        }}
+                                    >
+                                        {inventory.map(item => (
+                                            <ItemSlot 
+                                                key={item.id} 
+                                                item={item} 
+                                                onClick={() => {
+                                                    if (inkModeItem) attachInk(inkModeItem, item); 
+                                                    else setSelectedItem(item);
+                                                }}
+                                                onDragStart={(e) => handleDragStart(e, item, 'inventory')}
+                                                onDragEnd={handleDragEnd}
+                                                isDropTarget={dragOverTarget === 'inventory' && draggedItem?.source === 'warehouse'}
+                                                dragSource={draggedItem}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* 倉庫 */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                                            <Warehouse size={24} className="text-indigo-500" /> 倉庫 ({warehouse.length}/{MAX_WAREHOUSE})
+                                        </h3>
+                                    </div>
+                                    <div 
+                                        className={`grid grid-cols-6 md:grid-cols-8 gap-3 p-4 rounded-lg border-2 ${dragOverTarget === 'warehouse' && draggedItem?.source === 'inventory' ? 'border-blue-500 bg-blue-900/20' : 'border-gray-700 bg-gray-800/50'}`}
+                                        onDragOver={(e) => handleDragOver(e, 'warehouse')}
+                                        onDrop={(e) => handleDrop(e, 'warehouse')}
+                                        onDragLeave={() => {
+                                            if (dragOverTarget === 'warehouse') {
+                                                setDragOverTarget(null);
+                                            }
+                                        }}
+                                    >
+                                        {warehouse.map(item => (
+                                            <ItemSlot 
+                                                key={item.id} 
+                                                item={item} 
+                                                onClick={() => setSelectedItem(item)}
+                                                onDragStart={(e) => handleDragStart(e, item, 'warehouse')}
+                                                onDragEnd={handleDragEnd}
+                                                isDropTarget={dragOverTarget === 'warehouse' && draggedItem?.source === 'inventory'}
+                                                dragSource={draggedItem}
+                                            />
+                                        ))}
+                                        {warehouse.length === 0 && (
+                                            <div className="col-span-full text-center text-gray-500 py-12">
+                                                倉庫は空です
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1213,6 +1877,157 @@ export default function HackSlashGame() {
                             playerLevel={player.level}
                         />
                     )}
+
+                    {tab === 'equipment' && (
+                        <div className="p-8 bg-gray-900 min-h-full">
+                            <h2 className="text-2xl font-bold text-green-500 mb-8 flex items-center gap-3">
+                                <Hammer size={28} /> 装備強化
+                            </h2>
+                            
+                            <div className="mb-8">
+                                <h3 className="text-lg font-bold text-gray-300 mb-4">装備中</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                    {['weapon', 'armor', 'accessory'].map(slot => {
+                                        const item = equipment[slot];
+                                        return (
+                                            <div key={slot} className="flex flex-col items-center gap-3">
+                                                <div className="w-24 h-24">
+                                                    <ItemSlot 
+                                                        item={item} 
+                                                        onClick={() => item && setSelectedItem({...item, isEquipped: true})} 
+                                                        isEquipped={true} 
+                                                        iconSize={48}
+                                                        onDragStart={item ? (e) => handleDragStart(e, item, 'equipment') : undefined}
+                                                        onDragEnd={handleDragEnd}
+                                                        dragSource={draggedItem}
+                                                    />
+                                                </div>
+                                                <span className="text-sm text-gray-400 uppercase">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
+                                                {item && (
+                                                    <div className="text-xs text-gray-500 text-center">
+                                                        {item.name}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="mb-8">
+                                <h3 className="text-lg font-bold text-gray-300 mb-4">
+                                    装備用アイテム ({inventory.filter(i => ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'].includes(i.type)).length})
+                                </h3>
+                                <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
+                                    {inventory.filter(i => ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'].includes(i.type)).map(item => (
+                                        <ItemSlot 
+                                            key={item.id} 
+                                            item={item} 
+                                            onClick={() => {
+                                                setSelectedItem(null);
+                                                setEquipmentItemMode(item);
+                                            }}
+                                            onDragStart={(e) => handleDragStart(e, item, 'inventory')}
+                                            onDragEnd={handleDragEnd}
+                                            dragSource={draggedItem}
+                                        />
+                                    ))}
+                                    {inventory.filter(i => ['enhancement_stone', 'enchant_scroll', 'element_stone', 'special_stone', 'reroll_scroll', 'option_slot_stone', 'rarity_upgrade_stone'].includes(i.type)).length === 0 && (
+                                        <div className="col-span-full text-center text-gray-500 py-12">
+                                            装備用アイテムがありません
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {equipmentItemMode && (
+                                <div className="bg-gray-800 p-6 rounded-xl border-2 border-green-500">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-16 h-16 rounded-lg flex items-center justify-center border-2 border-green-500 bg-gray-900">
+                                            <ItemIcon item={equipmentItemMode} size={32} />
+                                        </div>
+                                        <div>
+                                            <div className="text-lg font-bold text-green-400">{equipmentItemMode.name}</div>
+                                            <div className="text-sm text-gray-400">使用する装備品を選択してください</div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setEquipmentItemMode(null)} 
+                                            className="ml-auto px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                                        >
+                                            キャンセル
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4 mb-4">
+                                        {['weapon', 'armor', 'accessory'].map(slot => {
+                                            const item = equipment[slot];
+                                            if (!item) return null;
+                                            return (
+                                                <div key={slot} className="flex flex-col items-center gap-2">
+                                                    <div className="w-20 h-20">
+                                                        <ItemSlot 
+                                                            item={item} 
+                                                            onClick={() => {
+                                                                useItemOnEquipment(equipmentItemMode, item);
+                                                                setEquipmentItemMode(null);
+                                                            }}
+                                                            iconSize={40}
+                                                        />
+                                                    </div>
+                                                    <span className="text-xs text-gray-400">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        <div>
+                                            <h4 className="text-sm font-bold text-gray-400 mb-2 flex items-center gap-2">
+                                                <Backpack size={16} /> インベントリの装備品
+                                            </h4>
+                                            <div className="grid grid-cols-6 md:grid-cols-8 gap-3 max-h-48 overflow-y-auto p-2 bg-gray-900/50 rounded-lg">
+                                                {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).map(item => (
+                                                    <ItemSlot 
+                                                        key={item.id} 
+                                                        item={item} 
+                                                        onClick={() => {
+                                                            useItemOnEquipment(equipmentItemMode, item);
+                                                            setEquipmentItemMode(null);
+                                                        }}
+                                                    />
+                                                ))}
+                                                {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).length === 0 && (
+                                                    <div className="col-span-full text-center text-gray-500 py-4 text-sm">
+                                                        なし
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-gray-400 mb-2 flex items-center gap-2">
+                                                <Warehouse size={16} /> 倉庫の装備品
+                                            </h4>
+                                            <div className="grid grid-cols-6 md:grid-cols-8 gap-3 max-h-48 overflow-y-auto p-2 bg-gray-900/50 rounded-lg">
+                                                {warehouse.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).map(item => (
+                                                    <ItemSlot 
+                                                        key={item.id} 
+                                                        item={item} 
+                                                        onClick={() => {
+                                                            useItemOnEquipment(equipmentItemMode, item, true);
+                                                            setEquipmentItemMode(null);
+                                                        }}
+                                                    />
+                                                ))}
+                                                {warehouse.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).length === 0 && (
+                                                    <div className="col-span-full text-center text-gray-500 py-4 text-sm">
+                                                        なし
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         )}
@@ -1229,6 +2044,15 @@ export default function HackSlashGame() {
                             </div>
                             <div className="h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
                                 <div className="h-full bg-green-500 transition-all" style={{ width: `${(player.hp / getStats.maxHp) * 100}%` }} />
+                            </div>
+                        </div>
+                        <div className="mb-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="text-sm text-cyan-400 font-bold">MP</div>
+                                <div className="text-sm text-cyan-400 font-bold">{player.mp} / {player.maxMp || 50}</div>
+                            </div>
+                            <div className="h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                                <div className="h-full bg-cyan-500 transition-all" style={{ width: `${((player.mp || 0) / (player.maxMp || 50)) * 100}%` }} />
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -1291,7 +2115,7 @@ export default function HackSlashGame() {
                                     <button 
                                         key={num} 
                                         onClick={() => handleUseSkill(num)} 
-                                        disabled={player.hp <= 0 || cd > 0 || !skill} 
+                                        disabled={player.hp <= 0 || cd > 0 || !skill || (skill.skillData?.mpCost && player.mp < skill.skillData.mpCost)} 
                                         className={`aspect-square rounded-lg flex flex-col items-center justify-center relative overflow-hidden border-2 transition-all
                                             ${skill ? 'bg-slate-800 border-gray-700' : 'bg-gray-900 border-gray-800 opacity-50'} 
                                             ${cd > 0 ? 'grayscale cursor-not-allowed' : skill ? 'hover:border-white hover:scale-105 active:scale-95' : ''}
@@ -1357,41 +2181,6 @@ export default function HackSlashGame() {
              </div>
         )}
 
-        {equipmentItemMode && (
-             <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
-                <div className="bg-gray-800 w-full max-w-2xl rounded-xl border-2 border-green-500 p-8 shadow-2xl">
-                    <div className="text-center mb-6">
-                        <h3 className="text-2xl font-bold text-green-400 mb-2">装備品を選択</h3>
-                        <p className="text-sm text-gray-400">{equipmentItemMode.name}を使用する装備品を選んでください</p>
-                    </div>
-                    <div className="mb-6">
-                        <h4 className="text-lg font-bold text-gray-300 mb-3">装備中</h4>
-                        <div className="grid grid-cols-3 gap-3 mb-6">
-                            {['weapon', 'armor', 'accessory'].map(slot => {
-                                const item = equipment[slot];
-                                if (!item) return null;
-                                return (
-                                    <div key={slot} className="flex flex-col items-center gap-2">
-                                        <ItemSlot item={item} onClick={() => useItemOnEquipment(equipmentItemMode, item)} />
-                                        <span className="text-xs text-gray-400">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <h4 className="text-lg font-bold text-gray-300 mb-3">インベントリ</h4>
-                        <div className="grid grid-cols-8 gap-3 max-h-96 overflow-y-auto">
-                            {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).map(item => (
-                                <ItemSlot key={item.id} item={item} onClick={() => useItemOnEquipment(equipmentItemMode, item)} />
-                            ))}
-                            {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).length === 0 && (
-                                <div className="col-span-8 text-center text-gray-500 py-8">対象となる装備品がありません</div>
-                            )}
-                        </div>
-                    </div>
-                    <button onClick={() => setEquipmentItemMode(null)} className="w-full py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-bold">キャンセル</button>
-                </div>
-             </div>
-        )}
 
         {selectedItem?.type === 'portal_basic' && (
             <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-8" onClick={() => setSelectedItem(null)}>
@@ -1407,17 +2196,19 @@ export default function HackSlashGame() {
             <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-8" onClick={() => setSelectedItem(null)}>
                 <div className="bg-gray-800 w-full max-w-2xl rounded-xl border-2 border-gray-700 p-8 shadow-2xl animate-[slideUp_0.2s_ease-out]" onClick={e => e.stopPropagation()}>
                     
-                    <div className="flex gap-6 mb-6">
-                        <div className={`w-20 h-20 rounded-lg flex items-center justify-center border-2 ${RARITIES[selectedItem.rarity]?.bg || 'bg-gray-800'} ${RARITIES[selectedItem.rarity]?.border || 'border-gray-600'}`}>
-                            <ItemIcon item={selectedItem} size={40} />
-                        </div>
-                        <div className="flex-1">
-                            <div className={`text-sm font-bold uppercase mb-2 ${RARITIES[selectedItem.rarity]?.color || 'text-gray-400'}`}>
-                                {RARITIES[selectedItem.rarity]?.label || 'Item'}
+                    {selectedItem.name && (
+                        <div className="flex gap-6 mb-6">
+                            <div className={`w-20 h-20 rounded-lg flex items-center justify-center border-2 ${RARITIES[selectedItem.rarity]?.bg || 'bg-gray-800'} ${RARITIES[selectedItem.rarity]?.border || 'border-gray-600'}`}>
+                                <ItemIcon item={selectedItem} size={40} />
                             </div>
-                            <div className="text-2xl font-bold">{selectedItem.name}</div>
+                            <div className="flex-1">
+                                <div className={`text-sm font-bold uppercase mb-2 ${RARITIES[selectedItem.rarity]?.color || 'text-gray-400'}`}>
+                                    {RARITIES[selectedItem.rarity]?.label || 'Item'}
+                                </div>
+                                <div className="text-2xl font-bold">{selectedItem.name || '無名のアイテム'}</div>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 mb-6 text-base max-h-96 overflow-y-auto">
                         {selectedItem.type === 'ink' && (
@@ -1434,6 +2225,9 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'enhancement_stone' && (
                             <div className="text-yellow-300 mb-4">
                                 <div className="text-lg mb-2">効果: 装備品の基本ステータスを{(selectedItem.mult * 100).toFixed(0)}%強化</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">武器、防具、アクセサリに使用できます</div>
                             </div>
                         )}
@@ -1441,6 +2235,9 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'enchant_scroll' && (
                             <div className="text-blue-300 mb-4">
                                 <div className="text-lg mb-2">効果: 装備品にランダムオプションを1つ追加</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">オプション枠に空きがある装備品に使用できます</div>
                             </div>
                         )}
@@ -1448,6 +2245,9 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'element_stone' && (
                             <div className="text-cyan-300 mb-4">
                                 <div className="text-lg mb-2">効果: {getElementConfig(selectedItem.element).label}耐性 +{selectedItem.value}%を付与</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">オプション枠に空きがある装備品に使用できます</div>
                             </div>
                         )}
@@ -1455,6 +2255,9 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'special_stone' && (
                             <div className="text-purple-300 mb-4">
                                 <div className="text-lg mb-2">効果: 特殊オプション「{SPECIAL_OPTIONS.find(o => o.type === selectedItem.specialType)?.label || ''} +{selectedItem.value}{SPECIAL_OPTIONS.find(o => o.type === selectedItem.specialType)?.unit || ''}」を付与</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">オプション枠に空きがある装備品に使用できます</div>
                             </div>
                         )}
@@ -1462,6 +2265,9 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'reroll_scroll' && (
                             <div className="text-green-300 mb-4">
                                 <div className="text-lg mb-2">効果: 装備品のランダムなオプションを1つ変更</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">オプションが存在する装備品に使用できます</div>
                             </div>
                         )}
@@ -1469,6 +2275,9 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'option_slot_stone' && (
                             <div className="text-cyan-300 mb-4">
                                 <div className="text-lg mb-2">効果: 装備品のオプション枠を{selectedItem.slots || 1}つ増やす</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">最大5枠まで増やすことができます</div>
                             </div>
                         )}
@@ -1476,58 +2285,97 @@ export default function HackSlashGame() {
                         {selectedItem.type === 'rarity_upgrade_stone' && (
                             <div className="text-orange-300 mb-4">
                                 <div className="text-lg mb-2">効果: 装備品のレアリティを{selectedItem.upgrades || 1}段階上げる</div>
+                                {selectedItem.count && selectedItem.count > 1 && (
+                                    <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
+                                )}
                                 <div className="text-sm text-gray-400">レジェンダリーまで上げることができます</div>
                             </div>
                         )}
 
                         {selectedItem.type === 'skill' && selectedItem.skillData && (
                             <div className="mb-4">
+                                {selectedItem.skillData.level && (
+                                    <div className="text-yellow-400 text-lg font-bold mb-3">Lv.{selectedItem.skillData.level}</div>
+                                )}
+                                {selectedItem.skillData.requiredStat && (
+                                    <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4">
+                                        <div className="text-red-400 text-sm font-bold mb-1">必要能力値: {selectedItem.skillData.requiredStat}</div>
+                                        <div className="text-xs text-gray-400">現在: {getStats.str + getStats.vit + getStats.dex}</div>
+                                        {(getStats.str + getStats.vit + getStats.dex) < selectedItem.skillData.requiredStat && (
+                                            <div className="text-red-500 text-xs mt-1">※装備できません</div>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div className="text-cyan-300 flex justify-between items-center">
                                         <span className="text-gray-400">タイプ</span>
-                                        <span className="font-bold">{selectedItem.skillData.type === 'buff' ? 'BUFF' : 'ATTACK'}</span>
+                                        <span className="font-bold">{selectedItem.skillData.type === 'buff' ? 'BUFF' : selectedItem.skillData.type === 'heal' ? 'HEAL' : 'ATTACK'}</span>
                                     </div>
                                     <div className="text-cyan-300 flex justify-between items-center">
                                         <span className="text-gray-400">属性</span>
-                                        <span className="font-bold">{getElementConfig(selectedItem.skillData.element).label}</span>
+                                        <span className="font-bold">{getElementConfig(selectedItem.skillData.element || 'none').label}</span>
                                     </div>
-                                    <div className="text-cyan-300 flex justify-between items-center">
-                                        <span className="text-gray-400">威力</span>
-                                        <span className="font-bold">x{selectedItem.skillData.power.toFixed(1)}</span>
-                                    </div>
-                                    <div className="text-cyan-300 flex justify-between items-center">
-                                        <span className="text-gray-400">CD</span>
-                                        <span className="font-bold">{selectedItem.skillData.cd}s</span>
-                                    </div>
+                                    {selectedItem.skillData.power !== undefined && (
+                                        <div className="text-cyan-300 flex justify-between items-center">
+                                            <span className="text-gray-400">威力</span>
+                                            <span className="font-bold">x{typeof selectedItem.skillData.power === 'number' ? selectedItem.skillData.power.toFixed(1) : selectedItem.skillData.power}</span>
+                                        </div>
+                                    )}
+                                    {selectedItem.skillData.cd !== undefined && (
+                                        <div className="text-cyan-300 flex justify-between items-center">
+                                            <span className="text-gray-400">CD</span>
+                                            <span className="font-bold">{selectedItem.skillData.cd}s</span>
+                                        </div>
+                                    )}
+                                    {selectedItem.skillData.mpCost !== undefined && (
+                                        <div className="text-cyan-300 flex justify-between items-center">
+                                            <span className="text-gray-400">MPコスト</span>
+                                            <span className="font-bold text-cyan-400">{selectedItem.skillData.mpCost}</span>
+                                        </div>
+                                    )}
+                                    {selectedItem.skillData.duration !== undefined && (
+                                        <div className="text-cyan-300 flex justify-between items-center">
+                                            <span className="text-gray-400">持続時間</span>
+                                            <span className="font-bold">{selectedItem.skillData.duration}s</span>
+                                        </div>
+                                    )}
                                 </div>
                                 
-                                <div className="mt-4 pt-4 border-t border-gray-800">
-                                    <div className="text-sm text-gray-500 mb-3">インクスロット ({selectedItem.inks?.length || 0}/{selectedItem.inkSlots})</div>
-                                    <div className="flex gap-2 flex-wrap">
-                                        {(selectedItem.inks || []).map((ink, i) => (
-                                            <div key={i} className="bg-purple-900/40 border border-purple-500 px-3 py-2 rounded-lg text-sm text-purple-200">
-                                                {ink.name}
-                                            </div>
-                                        ))}
-                                        {(selectedItem.inks?.length || 0) < selectedItem.inkSlots && !selectedItem.isEquipped && (
-                                            <button onClick={() => { setInkModeItem(selectedItem); setSelectedItem(null); }} className="bg-gray-800 border-2 border-dashed border-gray-600 px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white transition-colors">
-                                                + インク装着
-                                            </button>
-                                        )}
+                                {selectedItem.inkSlots !== undefined && (
+                                    <div className="mt-4 pt-4 border-t border-gray-800">
+                                        <div className="text-sm text-gray-500 mb-3">インクスロット ({(selectedItem.inks?.length || 0)}/{selectedItem.inkSlots})</div>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {(selectedItem.inks || []).map((ink, i) => (
+                                                <div key={i} className="bg-purple-900/40 border border-purple-500 px-3 py-2 rounded-lg text-sm text-purple-200">
+                                                    {ink.name || ink.mod?.label || `インク ${i + 1}`}
+                                                </div>
+                                            ))}
+                                            {(selectedItem.inks?.length || 0) < (selectedItem.inkSlots || 0) && !selectedItem.isEquipped && (
+                                                <button onClick={() => { setInkModeItem(selectedItem); setSelectedItem(null); }} className="bg-gray-800 border-2 border-dashed border-gray-600 px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white transition-colors">
+                                                    + インク装着
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
 
-                        {Object.entries(selectedItem.baseStats||selectedItem.stats||{}).map(([k,v]) => (
-                            <div key={k} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
-                                <span className="text-gray-400 uppercase text-sm">{k}</span>
-                                <span className="font-bold text-lg">{v}</span>
+                        {(selectedItem.baseStats || selectedItem.stats) && Object.keys(selectedItem.baseStats || selectedItem.stats || {}).length > 0 && (
+                            <>
+                                {Object.entries(selectedItem.baseStats || selectedItem.stats || {}).map(([k, v]) => (
+                                    <div key={k} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
+                                        <span className="text-gray-400 uppercase text-sm">{k}</span>
+                                        <span className="font-bold text-lg">{v}</span>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                        {selectedItem.options && selectedItem.options.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                {renderMergedOptions(selectedItem.options)}
                             </div>
-                        ))}
-                        <div className="mt-4 pt-4 border-t border-gray-800">
-                            {renderMergedOptions(selectedItem.options)}
-                        </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1536,6 +2384,15 @@ export default function HackSlashGame() {
                                 <button onClick={() => sellItem(selectedItem)} className="py-4 rounded-lg border-2 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors font-bold">
                                     売却
                                 </button>
+                                {warehouseTab ? (
+                                    <button onClick={() => moveToInventory(selectedItem)} className="py-4 rounded-lg bg-blue-600 text-white font-bold text-lg hover:bg-blue-500 transition-colors">
+                                        インベントリへ移動
+                                    </button>
+                                ) : (
+                                    <button onClick={() => moveToWarehouse(selectedItem)} className="py-4 rounded-lg bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-500 transition-colors">
+                                        倉庫へ移動
+                                    </button>
+                                )}
                                 {selectedItem.type === 'skill' ? (
                                     <div className="flex gap-2">
                                         <button onClick={() => equipItem(selectedItem, 1)} className="flex-1 py-3 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-800 transition-colors font-bold">S1</button>
@@ -1543,17 +2400,31 @@ export default function HackSlashGame() {
                                         <button onClick={() => equipItem(selectedItem, 3)} className="flex-1 py-3 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-800 transition-colors font-bold">S3</button>
                                     </div>
                                 ) : selectedItem.type !== 'ink' ? (
-                                    <button onClick={() => equipItem(selectedItem)} className="py-4 rounded-lg bg-blue-600 text-white font-bold text-lg hover:bg-blue-500 transition-colors">
-                                        装備
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => equipItem(selectedItem)} className="flex-1 py-4 rounded-lg bg-blue-600 text-white font-bold text-lg hover:bg-blue-500 transition-colors">
+                                            装備
+                                        </button>
+                                        {!warehouseTab && (
+                                            <button onClick={() => moveToWarehouse(selectedItem)} className="px-4 py-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors" title="倉庫へ移動">
+                                                <Warehouse size={20} />
+                                            </button>
+                                        )}
+                                    </div>
                                 ) : null}
                              </>
                          ) : selectedItem.isEquipped ? (
                              <div className="col-span-2 space-y-3">
                                 <div className="text-center text-sm text-gray-500 py-2 bg-gray-900 rounded-lg">装備中</div>
-                                <button onClick={() => unequipItem(selectedItem.type === 'skill' ? Object.keys(equipment).find(key => equipment[key]?.id === selectedItem.id) : selectedItem.type)} className="w-full py-4 bg-red-900/50 text-red-200 border-2 border-red-800 rounded-lg text-base font-bold hover:bg-red-900/70 transition-colors">
-                                    外す
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => unequipItem(selectedItem.type === 'skill' ? Object.keys(equipment).find(key => equipment[key]?.id === selectedItem.id) : selectedItem.type)} className="flex-1 py-4 bg-red-900/50 text-red-200 border-2 border-red-800 rounded-lg text-base font-bold hover:bg-red-900/70 transition-colors">
+                                        外す
+                                    </button>
+                                    {!warehouseTab && (
+                                        <button onClick={() => { unequipItem(selectedItem.type === 'skill' ? Object.keys(equipment).find(key => equipment[key]?.id === selectedItem.id) : selectedItem.type); moveToWarehouse(selectedItem); }} className="px-4 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors" title="外して倉庫へ移動">
+                                            <Warehouse size={20} />
+                                        </button>
+                                    )}
+                                </div>
                              </div>
                          ) : null}
                          
@@ -1562,9 +2433,16 @@ export default function HackSlashGame() {
                                 <button onClick={() => sellItem(selectedItem)} className="py-4 rounded-lg border-2 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors font-bold">
                                     売却
                                 </button>
-                                <button onClick={() => { startDungeon(selectedItem); setSelectedItem(null); }} className="py-4 rounded-lg bg-cyan-700 text-white font-bold text-lg hover:bg-cyan-600 transition-colors">
-                                    使用
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => { startDungeon(selectedItem); setSelectedItem(null); }} className="flex-1 py-4 rounded-lg bg-cyan-700 text-white font-bold text-lg hover:bg-cyan-600 transition-colors">
+                                        使用
+                                    </button>
+                                    {warehouseTab && (
+                                        <button onClick={() => moveToInventory(selectedItem)} className="px-4 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors" title="インベントリへ移動">
+                                            <Backpack size={20} />
+                                        </button>
+                                    )}
+                                </div>
                             </>
                          )}
 
@@ -1573,9 +2451,20 @@ export default function HackSlashGame() {
                                 <button onClick={() => sellItem(selectedItem)} className="py-4 rounded-lg border-2 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors font-bold">
                                     売却
                                 </button>
-                                <button onClick={() => { setEquipmentItemMode(selectedItem); setSelectedItem(null); }} className="py-4 rounded-lg bg-green-600 text-white font-bold text-lg hover:bg-green-500 transition-colors">
-                                    使用
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => { setTab('equipment'); setEquipmentItemMode(selectedItem); setSelectedItem(null); }} className="flex-1 py-4 rounded-lg bg-green-600 text-white font-bold text-lg hover:bg-green-500 transition-colors">
+                                        装備強化タブで使用
+                                    </button>
+                                    {warehouseTab ? (
+                                        <button onClick={() => moveToInventory(selectedItem)} className="px-4 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors" title="インベントリへ移動">
+                                            <Backpack size={20} />
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => moveToWarehouse(selectedItem)} className="px-4 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors" title="倉庫へ移動">
+                                            <Warehouse size={20} />
+                                        </button>
+                                    )}
+                                </div>
                             </>
                          )}
                     </div>
