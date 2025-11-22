@@ -36,12 +36,12 @@ const MAX_STONES = 10;
 const ELEMENTS = ['fire', 'ice', 'thunder', 'light', 'dark'];
 
 const ELEMENT_CONFIG = {
-  fire: { label: '火', icon: <Flame size={14} />, color: 'text-red-500', bg: 'bg-red-900/30' },
-  ice: { label: '氷', icon: <Snowflake size={14} />, color: 'text-cyan-400', bg: 'bg-cyan-900/30' },
-  thunder: { label: '雷', icon: <Zap size={14} />, color: 'text-yellow-400', bg: 'bg-yellow-900/30' },
-  light: { label: '光', icon: <Sun size={14} />, color: 'text-orange-300', bg: 'bg-orange-900/30' },
-  dark: { label: '闇', icon: <Moon size={14} />, color: 'text-purple-400', bg: 'bg-purple-900/30' },
-  none: { label: '無', icon: <Sword size={14} />, color: 'text-gray-400', bg: 'bg-gray-800' }
+  fire: { label: '火', icon: <Flame size={18} />, color: 'text-red-500', bg: 'bg-red-900/30' },
+  ice: { label: '氷', icon: <Snowflake size={18} />, color: 'text-cyan-400', bg: 'bg-cyan-900/30' },
+  thunder: { label: '雷', icon: <Zap size={18} />, color: 'text-yellow-400', bg: 'bg-yellow-900/30' },
+  light: { label: '光', icon: <Sun size={18} />, color: 'text-orange-300', bg: 'bg-orange-900/30' },
+  dark: { label: '闇', icon: <Moon size={18} />, color: 'text-purple-400', bg: 'bg-purple-900/30' },
+  none: { label: '無', icon: <Sword size={18} />, color: 'text-gray-400', bg: 'bg-gray-800' }
 };
 
 const RARITIES = {
@@ -343,8 +343,8 @@ const ItemIcon = ({ item, size = 24 }) => {
 
 const ItemSlot = React.memo(({ item, onClick, isEquipped = false, isSelected = false }) => {
   if (!item) return (
-      <div className="aspect-square bg-gray-800 rounded border border-gray-700 flex items-center justify-center opacity-50">
-          <div className="w-2 h-2 rounded-full bg-gray-700" />
+      <div className="aspect-square bg-gray-800 rounded-lg border-2 border-gray-700 flex items-center justify-center opacity-50">
+          <div className="w-3 h-3 rounded-full bg-gray-700" />
       </div>
   );
 
@@ -362,25 +362,25 @@ const ItemSlot = React.memo(({ item, onClick, isEquipped = false, isSelected = f
   return (
       <button 
           onClick={() => onClick(item)}
-          className={`aspect-square relative rounded p-1 flex flex-col items-center justify-center border-2 transition-all hover:scale-105 active:scale-95 
-            ${rarity.bg} ${isSelected ? 'border-white shadow-[0_0_10px_white]' : rarity.border}`}
+          className={`aspect-square relative rounded-lg p-2 flex flex-col items-center justify-center border-2 transition-all hover:scale-110 hover:shadow-lg active:scale-95 
+            ${rarity.bg} ${isSelected ? 'border-white shadow-[0_0_15px_white] ring-2 ring-white' : rarity.border}`}
       >
           <div className={`${rarity.color} relative`}>
-              <ItemIcon item={item} size={24} />
-              {hasSpecial && <Sparkles size={12} className="absolute -top-1 -right-2 text-yellow-200 animate-pulse" />}
+              <ItemIcon item={item} size={28} />
+              {hasSpecial && <Sparkles size={14} className="absolute -top-1 -right-2 text-yellow-200 animate-pulse" />}
               {isSkill && item.inks && item.inks.length > 0 && (
-                 <div className="absolute -bottom-1 -right-2 flex">
-                    {item.inks.map((_, i) => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500 border border-black" />)}
+                 <div className="absolute -bottom-1 -right-2 flex gap-0.5">
+                    {item.inks.map((_, i) => <div key={i} className="w-2 h-2 rounded-full bg-purple-500 border border-black" />)}
                  </div>
               )}
           </div>
           {item.isNew && !isEquipped && (
-              <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <div className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-gray-900" />
           )}
           {isEquipped && (
-              <div className="absolute -top-1 -left-1 bg-yellow-600 text-[8px] px-1 rounded text-white font-bold">E</div>
+              <div className="absolute -top-2 -left-2 bg-yellow-600 text-[10px] px-1.5 py-0.5 rounded text-white font-bold border-2 border-gray-900">E</div>
           )}
-          <div className="text-[9px] text-gray-300 truncate w-full text-center mt-1 px-1 leading-none">
+          <div className="text-[10px] text-gray-300 truncate w-full text-center mt-1.5 px-1 leading-tight font-medium">
             {label}
           </div>
       </button>
@@ -804,9 +804,9 @@ export default function HackSlashGame() {
         return acc;
     }, {});
     return Object.values(merged).map((opt, idx) => (
-        <div key={idx} className="flex justify-between items-center mb-1 last:mb-0">
-            <span className={`text-xs ${opt.isSpecial ? 'text-yellow-400 font-bold' : 'text-blue-200'}`}>{opt.label}</span>
-            <span className={`${opt.isSpecial ? 'text-yellow-400' : 'text-blue-200'}`}>+{opt.val}{opt.unit || ''}</span>
+        <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0 last:mb-0">
+            <span className={`text-sm ${opt.isSpecial ? 'text-yellow-400 font-bold' : 'text-blue-200'}`}>{opt.label}</span>
+            <span className={`text-base font-bold ${opt.isSpecial ? 'text-yellow-400' : 'text-blue-200'}`}>+{opt.val}{opt.unit || ''}</span>
         </div>
     ));
   };
@@ -832,245 +832,410 @@ export default function HackSlashGame() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white font-sans select-none overflow-hidden flex flex-col max-w-md mx-auto shadow-2xl border-x border-gray-800 relative">
-      <header className="bg-gray-900 p-3 flex justify-between items-center shadow-md z-10 border-b border-gray-800">
-        <div className="flex items-center gap-2">
-            <div className="bg-gray-800 p-1.5 rounded text-yellow-500 font-bold text-sm flex items-center gap-1 min-w-[80px]">
-                <Coins size={14} /> {player.gold.toLocaleString()}
+    <div className="h-screen w-screen bg-gray-950 text-white font-sans select-none overflow-hidden flex flex-col relative">
+      <header className="bg-gray-900 px-6 py-4 flex justify-between items-center shadow-md z-10 border-b border-gray-800">
+        <div className="flex items-center gap-4">
+            <div className="bg-gray-800 px-4 py-2 rounded-lg text-yellow-500 font-bold text-base flex items-center gap-2">
+                <Coins size={18} /> {player.gold.toLocaleString()}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm text-gray-400">
                 {phase === 'town' ? 'Town' : `F${activeDungeon?.floor} (${activeDungeon?.floor - activeDungeon?.startFloor + 1}/${activeDungeon?.maxFloor})`}
             </div>
+            {phase === 'dungeon' && (
+                <div className="flex items-center gap-2 text-sm">
+                    <div className="text-blue-400 font-bold">Lv.{player.level}</div>
+                    <div className="text-green-400 font-bold">{player.hp} / {getStats.maxHp}</div>
+                </div>
+            )}
         </div>
         {phase === 'town' ? (
-             <div className="flex gap-2">
-                <button onClick={() => setTab('portal')} className={`p-2 rounded ${tab === 'portal' ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400'}`}><Flame size={20} /></button>
-                <button onClick={() => setTab('inventory')} className={`p-2 rounded relative ${tab === 'inventory' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}><Backpack size={20} />{inventory.length >= MAX_INVENTORY && <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full" />}</button>
-                <button onClick={() => setTab('stats')} className={`p-2 rounded relative ${tab === 'stats' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400'}`}><Trophy size={20} />{player.statPoints > 0 && <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full" />}</button>
+             <div className="flex gap-3">
+                <button onClick={() => setTab('portal')} className={`px-4 py-2 rounded-lg transition-all ${tab === 'portal' ? 'bg-orange-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                    <Flame size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">冒険</span>
+                </button>
+                <button onClick={() => setTab('inventory')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'inventory' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                    <Backpack size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">インベントリ</span>
+                    {inventory.length >= MAX_INVENTORY && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900" />}
+                </button>
+                <button onClick={() => setTab('stats')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'stats' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                    <Trophy size={20} className="inline mr-2" />
+                    <span className="hidden md:inline">ステータス</span>
+                    {player.statPoints > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900" />}
+                </button>
             </div>
         ) : (
-            <button onClick={returnToTown} className="bg-red-900/50 text-red-200 text-xs px-3 py-1.5 rounded border border-red-800 flex items-center gap-1 hover:bg-red-900"><LogOut size={14} /> 帰還</button>
+            <button onClick={returnToTown} className="bg-red-900/50 text-red-200 px-4 py-2 rounded-lg border border-red-800 flex items-center gap-2 hover:bg-red-900 transition-all">
+                <LogOut size={16} /> 
+                <span className="hidden md:inline">帰還</span>
+            </button>
         )}
       </header>
 
-      <main className="flex-1 relative flex flex-col overflow-hidden">
+      <main className="flex-1 relative flex overflow-hidden">
         <div className="absolute inset-0 pointer-events-none z-50">
             {floatingTexts.map(ft => (
                 <div key={ft.id} className="absolute flex flex-col items-center animate-[floatUp_0.8s_forwards]" style={{ left: `${ft.x}%`, top: `${ft.y}%` }}>
-                    <span className={`font-black ${ft.isCrit ? 'text-3xl' : 'text-xl'} text-${ft.color === 'red' ? 'red-500' : ft.color === 'green' ? 'green-400' : ft.color === 'yellow' ? 'yellow-400' : 'white'} drop-shadow-md`}>{ft.text}{ft.isCrit && "!"}</span>
+                    <span className={`font-black ${ft.isCrit ? 'text-4xl' : 'text-2xl'} text-${ft.color === 'red' ? 'red-500' : ft.color === 'green' ? 'green-400' : ft.color === 'yellow' ? 'yellow-400' : 'white'} drop-shadow-md`}>{ft.text}{ft.isCrit && "!"}</span>
                 </div>
             ))}
-            <style>{`@keyframes floatUp { 0% { transform:translate(-50%,0) scale(0.8); opacity:1; } 100% { transform:translate(-50%,-80px) scale(1); opacity:0; } }`}</style>
+            <style>{`@keyframes floatUp { 0% { transform:translate(-50%,0) scale(0.8); opacity:1; } 100% { transform:translate(-50%,-100px) scale(1); opacity:0; } }`}</style>
         </div>
 
-        {phase === 'town' && tab === 'portal' && (
-            <div className="p-4 h-full overflow-y-auto bg-slate-900">
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><Flame className="text-orange-500" /> 冒険に出る</h2>
-                <div onClick={() => setSelectedItem({ type: 'portal_basic' })} className="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-6 cursor-pointer hover:bg-gray-750 hover:border-gray-500 transition-all">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-gray-700 p-3 rounded-full"><MapIcon size={24} className="text-gray-400" /></div>
-                        <div><div className="font-bold text-white">始まりの平原</div><div className="text-xs text-gray-400">5階層 | コストなし</div></div>
-                        <ArrowRight className="ml-auto text-gray-600" />
-                    </div>
-                </div>
-                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase">魔法石 ({stones.length}/{MAX_STONES})</h3>
-                <div className="grid grid-cols-1 gap-3">
-                    {stones.map(stone => {
-                        const rarity = RARITIES[stone.rarity];
-                        return (
-                            <div key={stone.id} onClick={() => setSelectedItem(stone)} className={`bg-slate-800 p-3 rounded-lg border ${rarity.border} cursor-pointer hover:brightness-110 transition-all relative overflow-hidden`}>
-                                <div className={`absolute top-0 left-0 w-1 h-full ${rarity.bg.replace('bg-', 'bg-')}`}></div>
-                                <div className="flex items-center gap-3 pl-2">
-                                     <div className={`bg-slate-900 p-2 rounded ${rarity.color}`}><MapIcon size={18} /></div>
-                                     <div>
-                                         <div className={`${rarity.color} font-bold text-sm`}>{stone.name}</div>
-                                         <div className="text-[10px] text-slate-400">Tier {stone.tier} / 深度:{stone.maxFloor}F</div>
-                                     </div>
+        {phase === 'town' && (
+            <div className="flex-1 flex overflow-hidden">
+                {/* サイドバー */}
+                <aside className="w-80 bg-gray-900 border-r border-gray-800 overflow-y-auto flex-shrink-0">
+                    <div className="p-6">
+                        <h3 className="text-lg font-bold text-yellow-500 mb-4 flex items-center gap-2">
+                            <Trophy size={20}/> ステータス
+                        </h3>
+                        <div className="bg-gray-800 p-4 rounded-xl mb-4 border border-gray-700">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="text-sm text-gray-400">未割り当てポイント</div>
+                                {player.statPoints > 0 && <div className="text-xs text-yellow-500 animate-pulse">未割り当て</div>}
+                            </div>
+                            <div className="text-4xl font-bold text-white">{player.statPoints}</div>
+                        </div>
+                        {['str','vit','dex'].map(k => (
+                            <div key={k} className="flex justify-between items-center bg-gray-800 p-4 rounded-lg mb-2 hover:bg-gray-750 transition-colors">
+                                <span className="text-gray-300 uppercase font-bold text-sm">{k === 'str' ? '筋力' : k === 'vit' ? '体力' : '幸運'}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl font-mono">{player.stats[k]}</span>
+                                    {player.statPoints > 0 && (
+                                        <button onClick={() => increaseStat(k)} className="w-10 h-10 bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition-colors">
+                                            +
+                                        </button>
+                                    )}
                                 </div>
                             </div>
-                        )
-                    })}
-                </div>
-            </div>
-        )}
-
-        {phase === 'town' && tab === 'stats' && (
-             <div className="p-6 bg-gray-900 h-full overflow-y-auto">
-                <h2 className="text-xl font-bold text-yellow-500 mb-6 flex items-center gap-2"><Trophy size={24}/> ステータス</h2>
-                <div className="bg-gray-800 p-4 rounded-xl mb-6 flex justify-between items-center border border-gray-700">
-                    <div><div className="text-xs text-gray-400">Points</div><div className="text-3xl font-bold text-white">{player.statPoints}</div></div>
-                    {player.statPoints > 0 && <div className="text-xs text-yellow-500 animate-pulse">未割り当て</div>}
-                </div>
-                {['str','vit','dex'].map(k => (
-                     <div key={k} className="flex justify-between items-center bg-gray-800 p-3 rounded mb-2">
-                         <span className="text-gray-300 uppercase font-bold">{k}</span>
-                         <div className="flex items-center gap-3">
-                             <span className="text-xl font-mono">{player.stats[k]}</span>
-                             {player.statPoints > 0 && <button onClick={() => increaseStat(k)} className="w-8 h-8 bg-yellow-600 rounded text-white font-bold">+</button>}
-                         </div>
-                     </div>
-                ))}
-             </div>
-        )}
-
-        {phase === 'town' && tab === 'inventory' && (
-            <div className="flex-1 bg-gray-900 overflow-y-auto">
-                <div className="p-6 bg-gray-800 rounded-b-3xl shadow-lg border-b border-gray-700 z-10 relative mb-4">
-                     <div className="flex justify-center gap-4">
-                        {['weapon', 'armor', 'accessory'].map(slot => (
-                            <div key={slot} className="flex flex-col items-center gap-1">
-                                <div className="w-14 h-14"><ItemSlot item={equipment[slot]} onClick={() => setSelectedItem({...equipment[slot], isEquipped: true})} isEquipped={true} /></div>
-                                <span className="text-[9px] text-gray-500 uppercase">{slot}</span>
-                            </div>
                         ))}
-                     </div>
-                     <div className="flex justify-center gap-4 mt-4 pt-4 border-t border-gray-700">
-                        {[1, 2, 3].map(num => (
-                            <div key={`skill${num}`} className="flex flex-col items-center gap-1">
-                                <div className="w-12 h-12"><ItemSlot item={equipment[`skill${num}`]} onClick={() => setSelectedItem({...equipment[`skill${num}`], isEquipped: true})} isEquipped={true} /></div>
-                                <span className="text-[9px] text-gray-500 uppercase">Skill {num}</span>
+                        <div className="mt-6 pt-6 border-t border-gray-700">
+                            <h4 className="text-sm font-bold text-gray-400 mb-3">装備中</h4>
+                            <div className="space-y-3">
+                                {['weapon', 'armor', 'accessory'].map(slot => (
+                                    <div key={slot} className="flex items-center gap-3 bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                        <div className="w-12 h-12 flex-shrink-0">
+                                            <ItemSlot item={equipment[slot]} onClick={() => setSelectedItem({...equipment[slot], isEquipped: true})} isEquipped={true} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs text-gray-500 uppercase mb-1">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</div>
+                                            <div className="text-sm font-bold text-white truncate">
+                                                {equipment[slot]?.name || '未装備'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                     </div>
-                </div>
-                <div className="p-4">
-                    <div className="grid grid-cols-5 gap-2">
-                        {inventory.map(item => <ItemSlot key={item.id} item={item} onClick={() => {
-                            if (inkModeItem) attachInk(inkModeItem, item); 
-                            else setSelectedItem(item);
-                        }} />)}
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                <h4 className="text-sm font-bold text-gray-400 mb-3">スキル</h4>
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map(num => (
+                                        <div key={`skill${num}`} className="flex items-center gap-3 bg-gray-800 p-2 rounded-lg border border-gray-700">
+                                            <div className="w-10 h-10 flex-shrink-0">
+                                                <ItemSlot item={equipment[`skill${num}`]} onClick={() => setSelectedItem({...equipment[`skill${num}`], isEquipped: true})} isEquipped={true} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs text-gray-500 mb-1">スキル {num}</div>
+                                                <div className="text-sm font-bold text-white truncate">
+                                                    {equipment[`skill${num}`]?.name || '未装備'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                </aside>
+
+                {/* メインコンテンツ */}
+                <div className="flex-1 overflow-y-auto">
+                    {tab === 'portal' && (
+                        <div className="p-8 bg-slate-900 min-h-full">
+                            <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
+                                <Flame className="text-orange-500" size={28} /> 冒険に出る
+                            </h2>
+                            <div onClick={() => setSelectedItem({ type: 'portal_basic' })} className="bg-gray-800 p-6 rounded-xl border-2 border-gray-700 mb-8 cursor-pointer hover:bg-gray-750 hover:border-gray-500 transition-all">
+                                <div className="flex items-center gap-6">
+                                    <div className="bg-gray-700 p-4 rounded-full"><MapIcon size={32} className="text-gray-400" /></div>
+                                    <div className="flex-1">
+                                        <div className="font-bold text-white text-xl mb-1">始まりの平原</div>
+                                        <div className="text-sm text-gray-400">5階層 | コストなし</div>
+                                    </div>
+                                    <ArrowRight className="text-gray-600" size={24} />
+                                </div>
+                            </div>
+                            <h3 className="text-base font-bold text-gray-400 mb-4 uppercase">魔法石 ({stones.length}/{MAX_STONES})</h3>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {stones.map(stone => {
+                                    const rarity = RARITIES[stone.rarity];
+                                    return (
+                                        <div key={stone.id} onClick={() => setSelectedItem(stone)} className={`bg-slate-800 p-4 rounded-lg border-2 ${rarity.border} cursor-pointer hover:brightness-110 hover:scale-105 transition-all relative overflow-hidden`}>
+                                            <div className={`absolute top-0 left-0 w-1.5 h-full ${rarity.bg.replace('bg-', 'bg-')}`}></div>
+                                            <div className="flex items-center gap-4 pl-3">
+                                                 <div className={`bg-slate-900 p-3 rounded-lg ${rarity.color}`}><MapIcon size={24} /></div>
+                                                 <div className="flex-1">
+                                                     <div className={`${rarity.color} font-bold text-base mb-1`}>{stone.name}</div>
+                                                     <div className="text-xs text-slate-400">Tier {stone.tier} / 深度:{stone.maxFloor}F</div>
+                                                 </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {tab === 'inventory' && (
+                        <div className="p-8 bg-gray-900 min-h-full">
+                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                                <Backpack size={28} className="text-blue-500" /> インベントリ
+                            </h2>
+                            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
+                                <div className="text-sm text-gray-400 mb-4">装備スロット</div>
+                                <div className="flex justify-center gap-6 mb-6">
+                                    {['weapon', 'armor', 'accessory'].map(slot => (
+                                        <div key={slot} className="flex flex-col items-center gap-2">
+                                            <div className="w-16 h-16">
+                                                <ItemSlot item={equipment[slot]} onClick={() => setSelectedItem({...equipment[slot], isEquipped: true})} isEquipped={true} />
+                                            </div>
+                                            <span className="text-xs text-gray-500 uppercase">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex justify-center gap-4 pt-4 border-t border-gray-700">
+                                    {[1, 2, 3].map(num => (
+                                        <div key={`skill${num}`} className="flex flex-col items-center gap-2">
+                                            <div className="w-14 h-14">
+                                                <ItemSlot item={equipment[`skill${num}`]} onClick={() => setSelectedItem({...equipment[`skill${num}`], isEquipped: true})} isEquipped={true} />
+                                            </div>
+                                            <span className="text-xs text-gray-500 uppercase">スキル {num}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
+                                {inventory.map(item => (
+                                    <ItemSlot 
+                                        key={item.id} 
+                                        item={item} 
+                                        onClick={() => {
+                                            if (inkModeItem) attachInk(inkModeItem, item); 
+                                            else setSelectedItem(item);
+                                        }} 
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {tab === 'stats' && (
+                        <div className="p-8 bg-gray-900 min-h-full">
+                            <h2 className="text-2xl font-bold text-yellow-500 mb-8 flex items-center gap-3">
+                                <Trophy size={28}/> ステータス詳細
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                                    <div className="text-sm text-gray-400 mb-2">未割り当てポイント</div>
+                                    <div className="text-5xl font-bold text-white mb-2">{player.statPoints}</div>
+                                    {player.statPoints > 0 && <div className="text-sm text-yellow-500 animate-pulse">未割り当て</div>}
+                                </div>
+                                {['str','vit','dex'].map(k => (
+                                    <div key={k} className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:bg-gray-750 transition-colors">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-gray-300 uppercase font-bold text-lg">
+                                                {k === 'str' ? '筋力' : k === 'vit' ? '体力' : '幸運'}
+                                            </span>
+                                            {player.statPoints > 0 && (
+                                                <button onClick={() => increaseStat(k)} className="w-10 h-10 bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition-colors">
+                                                    +
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="text-4xl font-mono text-white">{player.stats[k]}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         )}
 
         {phase === 'dungeon' && (
-            <>
-                <div className="flex-1 flex flex-col items-center justify-center p-4 relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950">
-                    <div className="absolute top-4 left-4 flex flex-col gap-1">
-                        {player.buffs.map(buff => (
-                            <div key={buff.id} className="flex items-center gap-1 bg-black/50 px-2 py-1 rounded text-[10px] text-cyan-300 border border-cyan-900">
-                                <ChevronsUp size={12} />
-                                {buff.name} ({buff.duration.toFixed(0)}s)
+            <div className="flex-1 flex overflow-hidden">
+                {/* 左サイドバー: ステータスとログ */}
+                <aside className="w-80 bg-gray-900 border-r border-gray-800 flex flex-col overflow-hidden">
+                    <div className="p-6 border-b border-gray-800">
+                        <div className="mb-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <div className="text-sm text-blue-400 font-bold">Lv.{player.level}</div>
+                                <div className="text-lg font-bold text-green-400">{player.hp} <span className="text-sm text-gray-600">/ {getStats.maxHp}</span></div>
                             </div>
-                        ))}
+                            <div className="h-4 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+                                <div className="h-full bg-green-500 transition-all" style={{ width: `${(player.hp / getStats.maxHp) * 100}%` }} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="text-xs text-gray-400 mb-2">バフ</div>
+                            {player.buffs.length > 0 ? (
+                                player.buffs.map(buff => (
+                                    <div key={buff.id} className="flex items-center gap-2 bg-black/50 px-3 py-2 rounded-lg text-sm text-cyan-300 border border-cyan-900">
+                                        <ChevronsUp size={14} />
+                                        <span className="flex-1">{buff.name}</span>
+                                        <span className="text-xs">({buff.duration.toFixed(0)}s)</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-xs text-gray-600 text-center py-2">バフなし</div>
+                            )}
+                        </div>
                     </div>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <div className="text-sm font-bold text-gray-400 mb-3">バトルログ</div>
+                        <div className="space-y-1 flex flex-col-reverse">
+                            {logs.slice(0, 20).map(l => (
+                                <div key={l.id} style={{color:l.color}} className="text-sm font-mono py-1 px-2 rounded hover:bg-gray-800 transition-colors">
+                                    {l.msg}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </aside>
 
+                {/* 中央: バトル画面 */}
+                <div className="flex-1 flex flex-col items-center justify-center p-8 relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800 to-slate-950">
                     {enemy && (
                         <>
-                            <div className={`text-7xl mb-4 transition-transform ${enemy.wait > enemy.maxWait - 5 ? 'scale-110' : 'scale-100'} ${enemy.hp===0 ? 'opacity-0' : ''}`}>{enemy.icon}</div>
-                            <div className="w-full max-w-[200px] text-center">
-                                <h2 className={`text-lg font-bold flex items-center justify-center gap-1 ${enemy.isBoss ? 'text-red-400' : 'text-gray-300'}`}>
+                            <div className={`text-9xl mb-6 transition-transform ${enemy.wait > enemy.maxWait - 5 ? 'scale-110' : 'scale-100'} ${enemy.hp===0 ? 'opacity-0' : ''}`}>
+                                {enemy.icon}
+                            </div>
+                            <div className="w-full max-w-md text-center">
+                                <h2 className={`text-2xl font-bold flex items-center justify-center gap-2 mb-4 ${enemy.isBoss ? 'text-red-400' : 'text-gray-300'}`}>
                                     {enemy.element !== 'none' && ELEMENT_CONFIG[enemy.element].icon}
                                     {enemy.name}
                                 </h2>
-                                <div className="h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-700 mt-1"><div className="h-full bg-red-600 transition-all" style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }} /></div>
-                                <div className="text-xs text-gray-500 mt-1">{enemy.hp} / {enemy.maxHp}</div>
+                                <div className="h-4 bg-gray-800 rounded-full overflow-hidden border-2 border-gray-700 mb-2">
+                                    <div className="h-full bg-red-600 transition-all" style={{ width: `${(enemy.hp / enemy.maxHp) * 100}%` }} />
+                                </div>
+                                <div className="text-sm text-gray-400 font-mono">{enemy.hp.toLocaleString()} / {enemy.maxHp.toLocaleString()}</div>
                             </div>
                         </>
                     )}
                 </div>
-                
-                <div className="bg-gray-900 p-4 pb-32 rounded-t-2xl border-t border-gray-800 shadow-xl z-10 relative">
-                     <div className="flex justify-between items-center mb-2">
-                         <div className="text-xs text-blue-400 font-bold">Lv.{player.level}</div>
-                         <div className="text-xl font-bold text-green-400">{player.hp} <span className="text-sm text-gray-600">/ {getStats.maxHp}</span></div>
-                     </div>
-                     <div className="h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-700 mb-3"><div className="h-full bg-green-500 transition-all" style={{ width: `${(player.hp / getStats.maxHp) * 100}%` }} /></div>
-                     <div className="h-32 overflow-hidden flex flex-col-reverse text-xs font-mono opacity-90 mask-linear-fade">
-                         {logs.slice(0,10).map(l => <div key={l.id} style={{color:l.color}} className="truncate py-0.5">{l.msg}</div>)}
-                     </div>
-                </div>
 
-                <div className="absolute bottom-0 left-0 w-full bg-gray-900 p-2 border-t border-gray-800 z-20">
-                    <div className="grid grid-cols-5 gap-2 mb-2">
-                         {[1, 2, 3].map(num => {
-                             const skill = equipment[`skill${num}`];
-                             const cd = skillCds[num-1];
-                             return (
-                                <button 
-                                    key={num} 
-                                    onClick={() => handleUseSkill(num)} 
-                                    disabled={player.hp <= 0 || cd > 0 || !skill} 
-                                    className={`col-span-1 aspect-square rounded flex flex-col items-center justify-center relative overflow-hidden border border-gray-700
-                                        ${skill ? 'bg-slate-800' : 'bg-gray-900 opacity-50'} 
-                                        ${cd > 0 ? 'grayscale cursor-not-allowed' : 'active:scale-95 hover:border-white'}
-                                    `}
-                                >
-                                    {skill ? (
-                                        <>
-                                            {ELEMENT_CONFIG[skill.skillData.element].icon}
-                                            <span className="text-[9px] leading-none mt-1">{skill.skillData.name.slice(0,4)}</span>
-                                            {cd > 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-lg font-bold text-white">{Math.ceil(cd)}</div>}
-                                        </>
-                                    ) : <span className="text-[8px] text-gray-600">Empty</span>}
-                                </button>
-                             )
-                         })}
-                         
-                         <button onClick={handleAttack} disabled={player.hp <= 0} className="col-span-2 h-full bg-gradient-to-b from-red-700 to-red-900 rounded flex items-center justify-center gap-1 text-white font-bold shadow-lg active:scale-[0.98]">
-                             <Sword size={20}/> 攻撃
-                         </button>
+                {/* 右サイドバー: スキルとアクション */}
+                <aside className="w-80 bg-gray-900 border-l border-gray-800 p-6 flex flex-col gap-4">
+                    <div>
+                        <div className="text-sm font-bold text-gray-400 mb-3">スキル</div>
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                            {[1, 2, 3].map(num => {
+                                const skill = equipment[`skill${num}`];
+                                const cd = skillCds[num-1];
+                                return (
+                                    <button 
+                                        key={num} 
+                                        onClick={() => handleUseSkill(num)} 
+                                        disabled={player.hp <= 0 || cd > 0 || !skill} 
+                                        className={`aspect-square rounded-lg flex flex-col items-center justify-center relative overflow-hidden border-2 transition-all
+                                            ${skill ? 'bg-slate-800 border-gray-700' : 'bg-gray-900 border-gray-800 opacity-50'} 
+                                            ${cd > 0 ? 'grayscale cursor-not-allowed' : skill ? 'hover:border-white hover:scale-105 active:scale-95' : ''}
+                                        `}
+                                    >
+                                        {skill ? (
+                                            <>
+                                                <div className="text-2xl mb-1">{ELEMENT_CONFIG[skill.skillData.element].icon}</div>
+                                                <span className="text-xs leading-none text-center px-1">{skill.skillData.name}</span>
+                                                {cd > 0 && (
+                                                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                                        <span className="text-2xl font-bold text-white">{Math.ceil(cd)}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span className="text-xs text-gray-600">Empty</span>
+                                        )}
+                                    </button>
+                                )
+                            })}
+                        </div>
                     </div>
-                    <button onClick={healPlayer} className="w-full py-2 bg-gray-800 rounded flex items-center justify-center text-green-400 hover:bg-gray-700 active:scale-95 text-xs">
-                        <Heart size={14} className="mr-1" /> 回復 (-{player.level*5}G)
-                    </button>
-                </div>
-            </>
+                    
+                    <div className="flex-1 flex flex-col justify-end gap-3">
+                        <button 
+                            onClick={handleAttack} 
+                            disabled={player.hp <= 0} 
+                            className="w-full py-4 bg-gradient-to-b from-red-700 to-red-900 rounded-lg flex items-center justify-center gap-2 text-white font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-800 active:scale-[0.98] transition-all"
+                        >
+                            <Sword size={24}/> 攻撃
+                        </button>
+                        <button 
+                            onClick={healPlayer} 
+                            className="w-full py-3 bg-gray-800 rounded-lg flex items-center justify-center gap-2 text-green-400 hover:bg-gray-700 active:scale-95 transition-all border border-gray-700"
+                        >
+                            <Heart size={18} /> 回復 (-{player.level*5}G)
+                        </button>
+                    </div>
+                </aside>
+            </div>
         )}
 
         {/* --- Modals --- */}
 
         {inkModeItem && (
-             <div className="absolute inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center sm:p-4">
-                <div className="bg-gray-800 w-full max-w-sm sm:rounded-xl rounded-t-xl border border-purple-500 p-5">
-                    <div className="text-center mb-4">
-                        <h3 className="text-lg font-bold text-purple-400">インクを選択</h3>
-                        <p className="text-xs text-gray-400">装着するインクを選んでください</p>
+             <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-8">
+                <div className="bg-gray-800 w-full max-w-2xl rounded-xl border-2 border-purple-500 p-8 shadow-2xl">
+                    <div className="text-center mb-6">
+                        <h3 className="text-2xl font-bold text-purple-400 mb-2">インクを選択</h3>
+                        <p className="text-sm text-gray-400">装着するインクを選んでください</p>
                     </div>
-                    <div className="grid grid-cols-5 gap-2 mb-4">
+                    <div className="grid grid-cols-8 gap-3 mb-6">
                         {inventory.filter(i => i.type === 'ink').map(item => (
                              <ItemSlot key={item.id} item={item} onClick={() => attachInk(inkModeItem, item)} />
                         ))}
                         {inventory.filter(i => i.type === 'ink').length === 0 && (
-                            <div className="col-span-5 text-center text-gray-500 text-sm py-4">インクを持っていません</div>
+                            <div className="col-span-8 text-center text-gray-500 py-8">インクを持っていません</div>
                         )}
                     </div>
-                    <button onClick={() => setInkModeItem(null)} className="w-full py-3 bg-gray-700 rounded">キャンセル</button>
+                    <button onClick={() => setInkModeItem(null)} className="w-full py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors font-bold">キャンセル</button>
                 </div>
              </div>
         )}
 
         {selectedItem?.type === 'portal_basic' && (
-            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-6" onClick={() => setSelectedItem(null)}>
-                <div className="bg-gray-800 w-full rounded-xl border border-gray-700 p-6" onClick={e => e.stopPropagation()}>
-                    <h3 className="text-xl font-bold mb-4">始まりの平原</h3>
-                    <p className="text-sm text-gray-400 mb-6">全5階層。コストなしで何度でも挑戦できます。</p>
-                    <button onClick={() => { startDungeon(null); setSelectedItem(null); }} className="w-full py-3 bg-blue-600 rounded font-bold hover:bg-blue-500">出発</button>
+            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-8" onClick={() => setSelectedItem(null)}>
+                <div className="bg-gray-800 w-full max-w-md rounded-xl border-2 border-gray-700 p-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-2xl font-bold mb-4">始まりの平原</h3>
+                    <p className="text-base text-gray-400 mb-8">全5階層。コストなしで何度でも挑戦できます。</p>
+                    <button onClick={() => { startDungeon(null); setSelectedItem(null); }} className="w-full py-4 bg-blue-600 rounded-lg font-bold text-lg hover:bg-blue-500 transition-colors">出発</button>
                 </div>
             </div>
         )}
 
         {selectedItem && selectedItem.type !== 'portal_basic' && (
-            <div className="absolute inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setSelectedItem(null)}>
-                <div className="bg-gray-800 w-full max-w-sm sm:rounded-xl rounded-t-xl border border-gray-700 p-5 animate-[slideUp_0.2s_ease-out]" onClick={e => e.stopPropagation()}>
+            <div className="absolute inset-0 z-50 bg-black/80 flex items-center justify-center p-8" onClick={() => setSelectedItem(null)}>
+                <div className="bg-gray-800 w-full max-w-2xl rounded-xl border-2 border-gray-700 p-8 shadow-2xl animate-[slideUp_0.2s_ease-out]" onClick={e => e.stopPropagation()}>
                     
-                    <div className="flex gap-3 mb-4">
-                        <div className={`w-12 h-12 rounded flex items-center justify-center border-2 ${RARITIES[selectedItem.rarity]?.bg || 'bg-gray-800'} ${RARITIES[selectedItem.rarity]?.border || 'border-gray-600'}`}>
-                            <ItemIcon item={selectedItem} size={28} />
+                    <div className="flex gap-6 mb-6">
+                        <div className={`w-20 h-20 rounded-lg flex items-center justify-center border-2 ${RARITIES[selectedItem.rarity]?.bg || 'bg-gray-800'} ${RARITIES[selectedItem.rarity]?.border || 'border-gray-600'}`}>
+                            <ItemIcon item={selectedItem} size={40} />
                         </div>
-                        <div>
-                            <div className={`text-xs font-bold uppercase ${RARITIES[selectedItem.rarity]?.color || 'text-gray-400'}`}>{RARITIES[selectedItem.rarity]?.label || 'Item'}</div>
-                            <div className="text-lg font-bold">{selectedItem.name}</div>
+                        <div className="flex-1">
+                            <div className={`text-sm font-bold uppercase mb-2 ${RARITIES[selectedItem.rarity]?.color || 'text-gray-400'}`}>
+                                {RARITIES[selectedItem.rarity]?.label || 'Item'}
+                            </div>
+                            <div className="text-2xl font-bold">{selectedItem.name}</div>
                         </div>
                     </div>
 
-                    <div className="bg-gray-900 p-3 rounded border border-gray-700 mb-4 text-sm max-h-60 overflow-y-auto">
+                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-700 mb-6 text-base max-h-96 overflow-y-auto">
                         {selectedItem.type === 'ink' && (
-                            <div className="text-purple-300 mb-2">
-                                <div>効果: {selectedItem.mod.label} {selectedItem.mod.val > 0 ? '+' : ''}{selectedItem.mod.val}{selectedItem.mod.unit || ''}</div>
+                            <div className="text-purple-300 mb-4">
+                                <div className="text-lg mb-2">効果: {selectedItem.mod.label} {selectedItem.mod.val > 0 ? '+' : ''}{selectedItem.mod.val}{selectedItem.mod.unit || ''}</div>
                                 {selectedItem.mod.penalty && (
-                                    <div className="text-red-400 text-xs">
+                                    <div className="text-red-400 text-sm">
                                         デメリット: {selectedItem.mod.penalty.type === 'power_down' ? '威力低下' : 'CD増加'} {selectedItem.mod.penalty.val * 100}%
                                     </div>
                                 )}
@@ -1078,22 +1243,36 @@ export default function HackSlashGame() {
                         )}
 
                         {selectedItem.type === 'skill' && selectedItem.skillData && (
-                            <div className="mb-2">
-                                <div className="text-cyan-300 flex justify-between"><span>Type</span><span>{selectedItem.skillData.type === 'buff' ? 'BUFF' : 'ATTACK'}</span></div>
-                                <div className="text-cyan-300 flex justify-between"><span>Element</span><span>{ELEMENT_CONFIG[selectedItem.skillData.element].label}</span></div>
-                                <div className="text-cyan-300 flex justify-between"><span>Power</span><span>x{selectedItem.skillData.power.toFixed(1)}</span></div>
-                                <div className="text-cyan-300 flex justify-between"><span>CD</span><span>{selectedItem.skillData.cd}s</span></div>
+                            <div className="mb-4">
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div className="text-cyan-300 flex justify-between items-center">
+                                        <span className="text-gray-400">タイプ</span>
+                                        <span className="font-bold">{selectedItem.skillData.type === 'buff' ? 'BUFF' : 'ATTACK'}</span>
+                                    </div>
+                                    <div className="text-cyan-300 flex justify-between items-center">
+                                        <span className="text-gray-400">属性</span>
+                                        <span className="font-bold">{ELEMENT_CONFIG[selectedItem.skillData.element].label}</span>
+                                    </div>
+                                    <div className="text-cyan-300 flex justify-between items-center">
+                                        <span className="text-gray-400">威力</span>
+                                        <span className="font-bold">x{selectedItem.skillData.power.toFixed(1)}</span>
+                                    </div>
+                                    <div className="text-cyan-300 flex justify-between items-center">
+                                        <span className="text-gray-400">CD</span>
+                                        <span className="font-bold">{selectedItem.skillData.cd}s</span>
+                                    </div>
+                                </div>
                                 
-                                <div className="mt-3 pt-2 border-t border-gray-800">
-                                    <div className="text-xs text-gray-500 mb-1">インクスロット ({selectedItem.inks?.length || 0}/{selectedItem.inkSlots})</div>
-                                    <div className="flex gap-1 flex-wrap">
+                                <div className="mt-4 pt-4 border-t border-gray-800">
+                                    <div className="text-sm text-gray-500 mb-3">インクスロット ({selectedItem.inks?.length || 0}/{selectedItem.inkSlots})</div>
+                                    <div className="flex gap-2 flex-wrap">
                                         {(selectedItem.inks || []).map((ink, i) => (
-                                            <div key={i} className="bg-purple-900/40 border border-purple-500 px-2 py-1 rounded text-[10px] text-purple-200">
+                                            <div key={i} className="bg-purple-900/40 border border-purple-500 px-3 py-2 rounded-lg text-sm text-purple-200">
                                                 {ink.name}
                                             </div>
                                         ))}
                                         {(selectedItem.inks?.length || 0) < selectedItem.inkSlots && !selectedItem.isEquipped && (
-                                            <button onClick={() => { setInkModeItem(selectedItem); setSelectedItem(null); }} className="bg-gray-800 border border-dashed border-gray-600 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-white hover:border-white">
+                                            <button onClick={() => { setInkModeItem(selectedItem); setSelectedItem(null); }} className="bg-gray-800 border-2 border-dashed border-gray-600 px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:border-white transition-colors">
                                                 + インク装着
                                             </button>
                                         )}
@@ -1103,38 +1282,51 @@ export default function HackSlashGame() {
                         )}
 
                         {Object.entries(selectedItem.baseStats||selectedItem.stats||{}).map(([k,v]) => (
-                            <div key={k} className="flex justify-between"><span className="text-gray-400 uppercase">{k}</span><span>{v}</span></div>
+                            <div key={k} className="flex justify-between items-center py-2 border-b border-gray-800 last:border-0">
+                                <span className="text-gray-400 uppercase text-sm">{k}</span>
+                                <span className="font-bold text-lg">{v}</span>
+                            </div>
                         ))}
-                        <div className="mt-2 pt-2 border-t border-gray-800">
+                        <div className="mt-4 pt-4 border-t border-gray-800">
                             {renderMergedOptions(selectedItem.options)}
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-4">
                          {selectedItem.type !== 'stone' && !selectedItem.isEquipped ? (
                              <>
-                                <button onClick={() => sellItem(selectedItem)} className="py-3 rounded border border-gray-600 text-gray-400">売却</button>
+                                <button onClick={() => sellItem(selectedItem)} className="py-4 rounded-lg border-2 border-gray-600 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors font-bold">
+                                    売却
+                                </button>
                                 {selectedItem.type === 'skill' ? (
-                                    <div className="flex gap-1">
-                                        <button onClick={() => equipItem(selectedItem, 1)} className="flex-1 py-2 bg-blue-900 text-white text-xs rounded">S1</button>
-                                        <button onClick={() => equipItem(selectedItem, 2)} className="flex-1 py-2 bg-blue-900 text-white text-xs rounded">S2</button>
-                                        <button onClick={() => equipItem(selectedItem, 3)} className="flex-1 py-2 bg-blue-900 text-white text-xs rounded">S3</button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => equipItem(selectedItem, 1)} className="flex-1 py-3 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-800 transition-colors font-bold">S1</button>
+                                        <button onClick={() => equipItem(selectedItem, 2)} className="flex-1 py-3 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-800 transition-colors font-bold">S2</button>
+                                        <button onClick={() => equipItem(selectedItem, 3)} className="flex-1 py-3 bg-blue-900 text-white text-sm rounded-lg hover:bg-blue-800 transition-colors font-bold">S3</button>
                                     </div>
                                 ) : selectedItem.type !== 'ink' ? (
-                                    <button onClick={() => equipItem(selectedItem)} className="py-3 rounded bg-blue-600 text-white font-bold">装備</button>
+                                    <button onClick={() => equipItem(selectedItem)} className="py-4 rounded-lg bg-blue-600 text-white font-bold text-lg hover:bg-blue-500 transition-colors">
+                                        装備
+                                    </button>
                                 ) : null}
                              </>
                          ) : selectedItem.isEquipped ? (
-                             <div className="col-span-2 grid grid-cols-2 gap-2">
-                                <div className="col-span-2 text-center text-xs text-gray-500 py-1">装備中</div>
-                                <button onClick={() => unequipItem(selectedItem.type === 'skill' ? Object.keys(equipment).find(key => equipment[key]?.id === selectedItem.id) : selectedItem.type)} className="col-span-2 py-2 bg-red-900/50 text-red-200 border border-red-800 rounded text-sm">外す</button>
+                             <div className="col-span-2 space-y-3">
+                                <div className="text-center text-sm text-gray-500 py-2 bg-gray-900 rounded-lg">装備中</div>
+                                <button onClick={() => unequipItem(selectedItem.type === 'skill' ? Object.keys(equipment).find(key => equipment[key]?.id === selectedItem.id) : selectedItem.type)} className="w-full py-4 bg-red-900/50 text-red-200 border-2 border-red-800 rounded-lg text-base font-bold hover:bg-red-900/70 transition-colors">
+                                    外す
+                                </button>
                              </div>
                          ) : null}
                          
                          {selectedItem.type === 'stone' && (
                             <>
-                                <button onClick={() => sellItem(selectedItem)} className="py-3 rounded border border-slate-600 text-slate-400">売却</button>
-                                <button onClick={() => { startDungeon(selectedItem); setSelectedItem(null); }} className="py-3 rounded bg-cyan-700 text-white font-bold">使用</button>
+                                <button onClick={() => sellItem(selectedItem)} className="py-4 rounded-lg border-2 border-slate-600 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors font-bold">
+                                    売却
+                                </button>
+                                <button onClick={() => { startDungeon(selectedItem); setSelectedItem(null); }} className="py-4 rounded-lg bg-cyan-700 text-white font-bold text-lg hover:bg-cyan-600 transition-colors">
+                                    使用
+                                </button>
                             </>
                          )}
                     </div>
