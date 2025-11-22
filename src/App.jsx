@@ -32,6 +32,32 @@ import { SkillTree } from './components/SkillTree';
 import { SKILL_TREE } from './constants.jsx';
 
 // ==========================================
+// Helper Functions
+// ==========================================
+
+const getSlotLabel = (slot) => {
+  const labels = {
+    weapon: '武器',
+    armor: '防具',
+    accessory: 'アクセサリ',
+    amulet: 'アミュレット',
+    ring1: 'リング1',
+    ring2: 'リング2',
+    belt: 'ベルト',
+    feet: '足',
+  };
+  return labels[slot] || slot;
+};
+
+const getSlotType = (slot) => {
+  if (slot === 'ring1' || slot === 'ring2') return 'ring';
+  return slot;
+};
+
+const EQUIPMENT_SLOTS = ['weapon', 'armor', 'accessory', 'amulet', 'ring1', 'ring2', 'belt', 'feet'];
+const EQUIPMENT_TYPES = ['weapon', 'armor', 'accessory', 'amulet', 'ring', 'belt', 'feet'];
+
+// ==========================================
 // Section 4: Main Component
 // ==========================================
 
@@ -436,7 +462,6 @@ export default function HackSlashGame() {
       newPlayer.level += 1;
       newPlayer.exp -= newPlayer.expToNext;
       newPlayer.expToNext = Math.floor(newPlayer.expToNext * 1.2);
-      newPlayer.statPoints += 3;
       newPlayer.skillPoints = (newPlayer.skillPoints || 0) + 1;
       newPlayer.hp = getStats.maxHp;
       // MPも回復
@@ -577,11 +602,6 @@ export default function HackSlashGame() {
     if (player.gold >= cost && player.hp < getStats.maxHp) {
       setPlayer(p => ({ ...p, gold: p.gold - cost, hp: getStats.maxHp }));
       spawnFloatingText("HEAL", "green");
-    }
-  };
-  const increaseStat = (key) => {
-    if (player.statPoints > 0) {
-      setPlayer(p => ({ ...p, statPoints: p.statPoints - 1, stats: { ...p.stats, [key]: p.stats[key] + 1 } }));
     }
   };
   
@@ -867,8 +887,9 @@ export default function HackSlashGame() {
         } else {
           addLog('スキルスロットにはスキルのみ装備できます', 'red');
         }
-      } else if (slot === 'weapon' || slot === 'armor' || slot === 'accessory') {
-        if (item.type === slot) {
+      } else if (EQUIPMENT_SLOTS.includes(slot)) {
+        const expectedType = getSlotType(slot);
+        if (item.type === expectedType) {
           canEquip = true;
           
           // 倉庫からの場合はインベントリに移動
@@ -907,7 +928,7 @@ export default function HackSlashGame() {
           
           addLog(`${item.name}を装備しました`, 'green');
         } else {
-          addLog(`このスロットには${slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}のみ装備できます`, 'red');
+          addLog(`このスロットには${getSlotLabel(slot)}のみ装備できます`, 'red');
         }
       }
       
@@ -1346,7 +1367,6 @@ export default function HackSlashGame() {
                 <button onClick={() => setTab('stats')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'stats' ? 'bg-yellow-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                     <Trophy size={20} className="inline mr-2" />
                     <span className="hidden md:inline">ステータス</span>
-                    {player.statPoints > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-900" />}
                 </button>
                 <button onClick={() => setTab('skills')} className={`px-4 py-2 rounded-lg transition-all relative ${tab === 'skills' ? 'bg-purple-600 text-white shadow-lg' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
                     <Sparkles size={20} className="inline mr-2" />
@@ -1390,23 +1410,11 @@ export default function HackSlashGame() {
                         <h3 className="text-lg font-bold text-yellow-500 mb-4 flex items-center gap-2">
                             <Trophy size={20}/> ステータス
                         </h3>
-                        <div className="bg-gray-800 p-4 rounded-xl mb-4 border border-gray-700">
-                            <div className="flex justify-between items-center mb-2">
-                                <div className="text-sm text-gray-400">未割り当てポイント</div>
-                                {player.statPoints > 0 && <div className="text-xs text-yellow-500 animate-pulse">未割り当て</div>}
-                            </div>
-                            <div className="text-4xl font-bold text-white">{player.statPoints}</div>
-                        </div>
                         {['str','vit','dex'].map(k => (
                             <div key={k} className="flex justify-between items-center bg-gray-800 p-4 rounded-lg mb-2 hover:bg-gray-750 transition-colors">
                                 <span className="text-gray-300 uppercase font-bold text-sm">{k === 'str' ? '筋力' : k === 'vit' ? '体力' : '幸運'}</span>
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl font-mono">{player.stats[k]}</span>
-                                    {player.statPoints > 0 && (
-                                        <button onClick={() => increaseStat(k)} className="w-10 h-10 bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition-colors">
-                                            +
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         ))}
@@ -1509,13 +1517,13 @@ export default function HackSlashGame() {
                         <div className="mt-6 pt-6 border-t border-gray-700">
                             <h4 className="text-sm font-bold text-gray-400 mb-3">装備中</h4>
                             <div className="space-y-3">
-                                {['weapon', 'armor', 'accessory'].map(slot => (
+                                {EQUIPMENT_SLOTS.map(slot => (
                                     <div key={slot} className="flex items-center gap-3 bg-gray-800 p-3 rounded-lg border border-gray-700">
                                         <div className="w-16 h-16 flex-shrink-0">
-                                            <ItemSlot item={equipment[slot]} onClick={() => setSelectedItem({...equipment[slot], isEquipped: true})} isEquipped={true} iconSize={32} />
+                                            <ItemSlot item={equipment[slot]} onClick={() => equipment[slot] && setSelectedItem({...equipment[slot], isEquipped: true})} isEquipped={true} iconSize={32} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="text-xs text-gray-500 uppercase mb-1">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</div>
+                                            <div className="text-xs text-gray-500 uppercase mb-1">{getSlotLabel(slot)}</div>
                                             <div className="text-sm font-bold text-white truncate">
                                                 {equipment[slot]?.name || '未装備'}
                                             </div>
@@ -1588,8 +1596,8 @@ export default function HackSlashGame() {
                             {/* 装備スロット */}
                             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
                                 <div className="text-sm text-gray-400 mb-4">装備スロット</div>
-                                <div className="flex justify-center gap-6 mb-6">
-                                    {['weapon', 'armor', 'accessory'].map(slot => (
+                                <div className="grid grid-cols-4 gap-4 mb-6">
+                                    {EQUIPMENT_SLOTS.map(slot => (
                                         <div 
                                             key={slot} 
                                             className="flex flex-col items-center gap-2"
@@ -1616,7 +1624,7 @@ export default function HackSlashGame() {
                                                     dragSource={draggedItem}
                                                 />
                                             </div>
-                                            <span className="text-xs text-gray-500 uppercase">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
+                                            <span className="text-xs text-gray-500 uppercase text-center">{getSlotLabel(slot)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -1740,23 +1748,13 @@ export default function HackSlashGame() {
                             {/* 基本ステータス */}
                             <div className="mb-8">
                                 <h3 className="text-lg font-bold text-gray-300 mb-4">基本ステータス</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                                        <div className="text-sm text-gray-400 mb-2">未割り当てポイント</div>
-                                        <div className="text-5xl font-bold text-white mb-2">{player.statPoints}</div>
-                                        {player.statPoints > 0 && <div className="text-sm text-yellow-500 animate-pulse">未割り当て</div>}
-                                    </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {['str','vit','dex'].map(k => (
                                         <div key={k} className="bg-gray-800 p-6 rounded-xl border border-gray-700 hover:bg-gray-750 transition-colors">
                                             <div className="flex justify-between items-center mb-4">
                                                 <span className="text-gray-300 uppercase font-bold text-lg">
                                                     {k === 'str' ? '筋力' : k === 'vit' ? '体力' : '幸運'}
                                                 </span>
-                                                {player.statPoints > 0 && (
-                                                    <button onClick={() => increaseStat(k)} className="w-10 h-10 bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition-colors">
-                                                        +
-                                                    </button>
-                                                )}
                                             </div>
                                             <div className="text-4xl font-mono text-white">{player.stats[k]}</div>
                                         </div>
@@ -1896,25 +1894,25 @@ export default function HackSlashGame() {
                             
                             <div className="mb-8">
                                 <h3 className="text-lg font-bold text-gray-300 mb-4">装備中</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                    {['weapon', 'armor', 'accessory'].map(slot => {
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                    {EQUIPMENT_SLOTS.map(slot => {
                                         const item = equipment[slot];
                                         return (
-                                            <div key={slot} className="flex flex-col items-center gap-3">
-                                                <div className="w-24 h-24">
+                                            <div key={slot} className="flex flex-col items-center gap-2">
+                                                <div className="w-20 h-20">
                                                     <ItemSlot 
                                                         item={item} 
                                                         onClick={() => item && setSelectedItem({...item, isEquipped: true})} 
                                                         isEquipped={true} 
-                                                        iconSize={48}
-                                                        onDragStart={item ? (e) => handleDragStart(e, item, 'equipment') : undefined}
+                                                        iconSize={40}
+                                                        onDragStart={item ? (e) => handleDragStart(e, item, `equipment_${slot}`) : undefined}
                                                         onDragEnd={handleDragEnd}
                                                         dragSource={draggedItem}
                                                     />
                                                 </div>
-                                                <span className="text-sm text-gray-400 uppercase">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
+                                                <span className="text-xs text-gray-400 text-center">{getSlotLabel(slot)}</span>
                                                 {item && (
-                                                    <div className="text-xs text-gray-500 text-center">
+                                                    <div className="text-xs text-gray-500 text-center truncate w-full">
                                                         {item.name}
                                                     </div>
                                                 )}
@@ -1968,23 +1966,23 @@ export default function HackSlashGame() {
                                             キャンセル
                                         </button>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-4 mb-4">
-                                        {['weapon', 'armor', 'accessory'].map(slot => {
+                                    <div className="grid grid-cols-4 gap-3 mb-4 max-h-64 overflow-y-auto">
+                                        {EQUIPMENT_SLOTS.map(slot => {
                                             const item = equipment[slot];
                                             if (!item) return null;
                                             return (
                                                 <div key={slot} className="flex flex-col items-center gap-2">
-                                                    <div className="w-20 h-20">
+                                                    <div className="w-16 h-16">
                                                         <ItemSlot 
                                                             item={item} 
                                                             onClick={() => {
                                                                 useItemOnEquipment(equipmentItemMode, item);
                                                                 setEquipmentItemMode(null);
                                                             }}
-                                                            iconSize={40}
+                                                            iconSize={32}
                                                         />
                                                     </div>
-                                                    <span className="text-xs text-gray-400">{slot === 'weapon' ? '武器' : slot === 'armor' ? '防具' : 'アクセサリ'}</span>
+                                                    <span className="text-xs text-gray-400 text-center">{getSlotLabel(slot)}</span>
                                                 </div>
                                             );
                                         })}
@@ -1995,7 +1993,7 @@ export default function HackSlashGame() {
                                                 <Backpack size={16} /> インベントリの装備品
                                             </h4>
                                             <div className="grid grid-cols-6 md:grid-cols-8 gap-3 max-h-48 overflow-y-auto p-2 bg-gray-900/50 rounded-lg">
-                                                {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).map(item => (
+                                                {inventory.filter(i => EQUIPMENT_TYPES.includes(i.type)).map(item => (
                                                     <ItemSlot 
                                                         key={item.id} 
                                                         item={item} 
@@ -2006,7 +2004,7 @@ export default function HackSlashGame() {
                                                         isSelected={selectedItem?.id === item.id}
                                                     />
                                                 ))}
-                                                {inventory.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).length === 0 && (
+                                                {inventory.filter(i => EQUIPMENT_TYPES.includes(i.type)).length === 0 && (
                                                     <div className="col-span-full text-center text-gray-500 py-4 text-sm">
                                                         なし
                                                     </div>
@@ -2018,7 +2016,7 @@ export default function HackSlashGame() {
                                                 <Warehouse size={16} /> 倉庫の装備品
                                             </h4>
                                             <div className="grid grid-cols-6 md:grid-cols-8 gap-3 max-h-48 overflow-y-auto p-2 bg-gray-900/50 rounded-lg">
-                                                {warehouse.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).map(item => (
+                                                {warehouse.filter(i => EQUIPMENT_TYPES.includes(i.type)).map(item => (
                                                     <ItemSlot 
                                                         key={item.id} 
                                                         item={item} 
@@ -2028,7 +2026,7 @@ export default function HackSlashGame() {
                                                         }}
                                                     />
                                                 ))}
-                                                {warehouse.filter(i => ['weapon', 'armor', 'accessory'].includes(i.type)).length === 0 && (
+                                                {warehouse.filter(i => EQUIPMENT_TYPES.includes(i.type)).length === 0 && (
                                                     <div className="col-span-full text-center text-gray-500 py-4 text-sm">
                                                         なし
                                                     </div>
@@ -2240,7 +2238,7 @@ export default function HackSlashGame() {
                                 {selectedItem.count && selectedItem.count > 1 && (
                                     <div className="text-sm text-blue-400 mb-2">所持数: {selectedItem.count}</div>
                                 )}
-                                <div className="text-sm text-gray-400">武器、防具、アクセサリに使用できます</div>
+                                <div className="text-sm text-gray-400">装備品に使用できます</div>
                             </div>
                         )}
 

@@ -107,8 +107,7 @@ export const ItemSlot = React.memo(({
           onMouseEnter={item ? handleMouseEnter : undefined}
           onMouseLeave={item ? handleMouseLeave : undefined}
           onMouseMove={item ? handleMouseMove : undefined}
-          className={`aspect-square relative rounded-lg p-2 flex flex-col items-center justify-center border-0 transition-all ${item ? 'hover:scale-110 hover:shadow-lg active:scale-95 cursor-pointer' : 'cursor-default'} ${item ? rarity.bg : 'bg-gray-800'} ${item ? rarity.border : 'border-gray-700'} ${isSelected ? 'shadow-[0_0_15px_currentColor] ring-2 ring-white' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-4 ring-blue-500' : ''}`}
-          style={{ borderWidth: '3px', borderStyle: 'solid' }}
+          className={`item-slot-button aspect-square relative rounded-lg p-2 flex flex-col items-center justify-center transition-all ${item ? 'hover:scale-110 hover:shadow-lg active:scale-95 cursor-pointer' : 'cursor-default'} ${item ? rarity.bg : 'bg-gray-800'} ${item ? rarity.border : 'border-gray-700'} ${isSelected ? 'shadow-[0_0_15px_currentColor] ring-2 ring-white' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-4 ring-blue-500' : ''}`}
       >
           <div className={`${rarity.color} relative`}>
               <ItemIcon item={item} size={calculatedIconSize} />

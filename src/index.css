@@ -67,6 +67,32 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+.item-slot-button {
+  border: 0 !important;
+  border-width: 3px !important;
+  border-style: solid !important;
+}
+
+/* グローバルCSSのbutton:hoverを無効化し、Tailwindクラスのborder-colorを適用 */
+button.item-slot-button.border-gray-200 { border-color: rgb(229, 231, 235) !important; }
+button.item-slot-button.border-green-300 { border-color: rgb(134, 239, 172) !important; }
+button.item-slot-button.border-blue-300 { border-color: rgb(147, 197, 253) !important; }
+button.item-slot-button.border-purple-300 { border-color: rgb(196, 181, 253) !important; }
+button.item-slot-button.border-yellow-300 { border-color: rgb(253, 224, 71) !important; }
+button.item-slot-button.border-gray-700 { border-color: rgb(55, 65, 81) !important; }
+
+button.item-slot-button.border-gray-200:hover,
+button.item-slot-button.border-green-300:hover,
+button.item-slot-button.border-blue-300:hover,
+button.item-slot-button.border-purple-300:hover,
+button.item-slot-button.border-yellow-300:hover,
+button.item-slot-button.border-gray-700:hover {
+  border-color: inherit !important;
+}
+
+
+
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

@@ -1,10 +1,15 @@
 import React from 'react';
-import { Sword, Shield, Map as MapIcon, Droplet, Gem, Sparkles, ScrollText, Flame, Snowflake, Zap, Sun, Moon, ArrowUpCircle, Layers } from 'lucide-react';
+import { Sword, Shield, Map as MapIcon, Droplet, Gem, Sparkles, ScrollText, Flame, Snowflake, Zap, Sun, Moon, ArrowUpCircle, Layers, Circle, Footprints } from 'lucide-react';
 import { getElementConfig } from '../constants.jsx';
 
 export const ItemIcon = ({ item, size = 24 }) => {
   if (item.type === 'weapon') return <Sword size={size} />;
   if (item.type === 'armor') return <Shield size={size} />;
+  if (item.type === 'accessory') return <Circle size={size} className="text-blue-400" />;
+  if (item.type === 'amulet') return <Gem size={size} className="text-purple-400" />;
+  if (item.type === 'ring') return <Circle size={size} className="text-yellow-400" />;
+  if (item.type === 'belt') return <Layers size={size} className="text-orange-400" />;
+  if (item.type === 'feet') return <Footprints size={size} className="text-cyan-400" />;
   if (item.type === 'stone') return <MapIcon size={size} />;
   if (item.type === 'ink') return <Droplet size={size} className="text-purple-400" />;
   if (item.type === 'skill') {

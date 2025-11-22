@@ -14,7 +14,6 @@ export const INITIAL_PLAYER = {
   mp: 50,
   maxMp: 50,
   stats: { str: 5, vit: 5, dex: 5 },
-  statPoints: 0,
   skillPoints: 0,
   learnedSkills: {}, // { skillId: level }
   buffs: [],
@@ -24,6 +23,11 @@ export const INITIAL_EQUIPMENT = {
   weapon: { id: 'init_w', name: "木の棒", type: "weapon", baseStats: { atk: 2 }, options: [], rarity: "common", power: 1 },
   armor: { id: 'init_a', name: "ボロボロの服", type: "armor", baseStats: { def: 1 }, options: [], rarity: "common", power: 1 },
   accessory: null,
+  amulet: null,
+  ring1: null,
+  ring2: null,
+  belt: null,
+  feet: null,
   skill1: null, 
   skill2: null,
   skill3: null,
@@ -124,7 +128,11 @@ export const MONSTER_NAMES = [
 export const ITEM_PREFIXES = ["錆びた", "普通の", "鋭い", "重厚な", "疾風の", "達人の", "勇者の", "魔王の", "神々の"];
 export const WEAPON_NAMES = ["ダガー", "ソード", "アックス", "メイス", "カタナ", "グレートソード"];
 export const ARMOR_NAMES = ["ローブ", "レザー", "メイル", "プレート", "フルプレート"];
-export const ACC_NAMES = ["リング", "アミュレット", "タリスマン", "オーブ"];
+export const ACC_NAMES = ["タリスマン", "オーブ"];
+export const AMULET_NAMES = ["アミュレット", "ペンダント", "首飾り", "護符"];
+export const RING_NAMES = ["リング", "指輪", "シグネット", "結婚指輪"];
+export const BELT_NAMES = ["ベルト", "帯", "サッシュ", "ウエストバッグ"];
+export const FEET_NAMES = ["ブーツ", "シューズ", "サンダル", "グリーブ"];
 
 // ==========================================
 // 装備品用アイテム定義

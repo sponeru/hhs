@@ -12,6 +12,10 @@ import {
   WEAPON_NAMES,
   ARMOR_NAMES,
   ACC_NAMES,
+  AMULET_NAMES,
+  RING_NAMES,
+  BELT_NAMES,
+  FEET_NAMES,
   ENHANCEMENT_STONE_TEMPLATES,
   ENCHANT_SCROLL_TEMPLATES,
   ELEMENT_STONE_TEMPLATES,
@@ -136,11 +140,32 @@ export const generateLoot = (floor, dungeonMods = {}) => {
     baseName = ARMOR_NAMES[randomInt(0, ARMOR_NAMES.length - 1)];
     baseStats.def = Math.floor(power * randomInt(8, 12) / 20) + 1;
     baseStats.hp = Math.floor(power * 2);
-  } else if (typeRoll < 0.75) {
+  } else if (typeRoll < 0.65) {
     type = "accessory";
     baseName = ACC_NAMES[randomInt(0, ACC_NAMES.length - 1)];
     baseStats.str = Math.floor(power / 15);
     baseStats.vit = Math.floor(power / 15);
+  } else if (typeRoll < 0.70) {
+    type = "amulet";
+    baseName = AMULET_NAMES[randomInt(0, AMULET_NAMES.length - 1)];
+    baseStats.str = Math.floor(power / 12);
+    baseStats.vit = Math.floor(power / 12);
+    baseStats.dex = Math.floor(power / 12);
+  } else if (typeRoll < 0.73) {
+    type = "ring";
+    baseName = RING_NAMES[randomInt(0, RING_NAMES.length - 1)];
+    baseStats.str = Math.floor(power / 12);
+    baseStats.vit = Math.floor(power / 12);
+  } else if (typeRoll < 0.76) {
+    type = "belt";
+    baseName = BELT_NAMES[randomInt(0, BELT_NAMES.length - 1)];
+    baseStats.vit = Math.floor(power / 10);
+    baseStats.hp = Math.floor(power * 1.5);
+  } else if (typeRoll < 0.79) {
+    type = "feet";
+    baseName = FEET_NAMES[randomInt(0, FEET_NAMES.length - 1)];
+    baseStats.def = Math.floor(power * randomInt(5, 8) / 20) + 1;
+    baseStats.dex = Math.floor(power / 12);
   } else if (typeRoll < 0.90) {
     type = "skill";
     const templates = SKILL_TEMPLATES.filter(s => !s.rarity || s.rarity === rarityKey);
