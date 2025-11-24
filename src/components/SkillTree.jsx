@@ -3,6 +3,7 @@ import { SKILL_TREE, SKILL_CATEGORIES } from '../constants.jsx';
 
 export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLevel }) => {
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
@@ -38,25 +39,27 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
   const getCategoryColor = (category) => {
     switch (category) {
       case SKILL_CATEGORIES.OFFENSE:
-        return 'border-red-500 bg-red-900/20';
+        return 'border-red-500 bg-red-900/80';
       case SKILL_CATEGORIES.DEFENSE:
-        return 'border-blue-500 bg-blue-900/20';
+        return 'border-blue-500 bg-blue-900/80';
       case SKILL_CATEGORIES.UTILITY:
-        return 'border-yellow-500 bg-yellow-900/20';
+        return 'border-yellow-500 bg-yellow-900/80';
       case SKILL_CATEGORIES.ELEMENTAL:
-        return 'border-purple-500 bg-purple-900/20';
+        return 'border-purple-500 bg-purple-900/80';
       default:
-        return 'border-gray-500 bg-gray-900/20';
+        return 'border-gray-500 bg-gray-900/80';
     }
   };
   
   
-  // スキルノードの位置を計算（階層構造）
+  // スキルノードの位置を計算（円状配置）
   const nodePositions = useMemo(() => {
     const positions = {};
     const nodeSize = 64; // アイコンサイズ
-    const horizontalSpacing = 120;
-    const verticalSpacing = 140;
+    
+    // ビューポートの中心を計算（後で調整可能）
+    const centerX = 800; // デフォルト中心X
+    const centerY = 600; // デフォルト中心Y
     
     // 階層を計算
     const getDepth = (skillId, visited = new Set()) => {
@@ -84,31 +87,60 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
       byDepth[depth].push(skill);
     });
     
-    // 各階層内でカテゴリごとにグループ化して配置
-    let startX = 100;
-    let startY = 100;
+    // 各階層を円周上に配置
+    const depthKeys = Object.keys(byDepth).sort((a, b) => parseInt(a) - parseInt(b));
+    const maxDepth = Math.max(...depthKeys.map(d => parseInt(d)));
     
-    Object.keys(byDepth).sort((a, b) => parseInt(a) - parseInt(b)).forEach(depth => {
+    // 各階層の半径を計算（階層が深いほど外側に）
+    const baseRadius = 80; // 中心からの最小半径
+    const radiusStep = 120; // 階層ごとの半径増加
+    
+    depthKeys.forEach(depthStr => {
+      const depth = parseInt(depthStr);
       const skills = byDepth[depth];
-      const byCategory = {};
-      skills.forEach(skill => {
-        if (!byCategory[skill.category]) byCategory[skill.category] = [];
-        byCategory[skill.category].push(skill);
-      });
+      const radius = baseRadius + depth * radiusStep;
       
-      let x = startX;
-      Object.entries(byCategory).forEach(([category, categorySkills]) => {
-        categorySkills.forEach((skill, idx) => {
-          positions[skill.id] = {
-            x: x + idx * horizontalSpacing,
-            y: startY + parseInt(depth) * verticalSpacing,
-            size: nodeSize
-          };
-        });
-        x += categorySkills.length * horizontalSpacing + 80;
-      });
+      // 同じ階層のスキルを円周上に均等に配置
+      const angleStep = (2 * Math.PI) / skills.length;
       
-      startX = 100;
+      skills.forEach((skill, idx) => {
+        // 角度を計算（最初のスキルを上から開始）
+        const angle = idx * angleStep - Math.PI / 2; // -π/2で上から開始
+        
+        // カテゴリごとに少し角度を調整して見やすくする
+        const categoryOffset = {
+          [SKILL_CATEGORIES.OFFENSE]: 0,
+          [SKILL_CATEGORIES.DEFENSE]: 0.1,
+          [SKILL_CATEGORIES.UTILITY]: -0.1,
+          [SKILL_CATEGORIES.ELEMENTAL]: 0.05,
+        }[skill.category] || 0;
+        
+        const finalAngle = angle + categoryOffset;
+        
+        // 極座標から直交座標に変換
+        const x = centerX + radius * Math.cos(finalAngle);
+        const y = centerY + radius * Math.sin(finalAngle);
+        
+        // 能力値スキルかどうかを判定（base_str, base_dex, base_int, all_stats_boostで始まる）
+        const isStatSkill = skill.id.startsWith('base_str') || 
+                           skill.id.startsWith('base_dex') || 
+                           skill.id.startsWith('base_int') || 
+                           skill.id.startsWith('all_stats_boost');
+        
+        // 効果の大きいスキルはサイズを大きく、能力値スキルは小さくする
+        let skillSize = nodeSize;
+        if (skill.isPowerful) {
+          skillSize = nodeSize * 1.3;
+        } else if (isStatSkill) {
+          skillSize = nodeSize * 0.85; // 能力値スキルは15%小さく
+        }
+        
+        positions[skill.id] = {
+          x: x - skillSize / 2, // ノードの中心を基準にする
+          y: y - skillSize / 2,
+          size: skillSize
+        };
+      });
     });
     
     return positions;
@@ -157,8 +189,74 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
   // ビューポートのサイズ
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight - 200 : 800;
-  
-  // 接続線を計算
+
+  // 初期パンの位置を中心に設定
+  React.useEffect(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setPan({
+        x: (rect.width / 2) - 800, // 中心点800, 600に合わせる
+        y: (rect.height / 2) - 600
+      });
+    }
+  }, []);
+
+  // ズーム機能
+  const handleZoom = useCallback((delta) => {
+    setZoom(prevZoom => {
+      const newZoom = Math.max(0.5, Math.min(2, prevZoom + delta));
+      return newZoom;
+    });
+  }, []);
+
+  // マウスホイールでズーム
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    handleZoom(delta);
+  }, [handleZoom]);
+
+  // ズームイン
+  const handleZoomIn = useCallback(() => {
+    handleZoom(0.1);
+  }, [handleZoom]);
+
+  // ズームアウト
+  const handleZoomOut = useCallback(() => {
+    handleZoom(-0.1);
+  }, [handleZoom]);
+
+  // ズームリセット
+  const handleZoomReset = useCallback(() => {
+    setZoom(1);
+  }, []);
+
+  // SVGのサイズと位置を計算（すべてのノードをカバーするように）
+  const svgBounds = useMemo(() => {
+    if (Object.keys(nodePositions).length === 0) {
+      return { x: 0, y: 0, width: 2000, height: 2000 };
+    }
+    
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    
+    Object.values(nodePositions).forEach(pos => {
+      minX = Math.min(minX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxX = Math.max(maxX, pos.x + pos.size);
+      maxY = Math.max(maxY, pos.y + pos.size);
+    });
+    
+    // マージンを追加
+    const margin = 200;
+    return {
+      x: minX - margin,
+      y: minY - margin,
+      width: maxX - minX + margin * 2,
+      height: maxY - minY + margin * 2
+    };
+  }, [nodePositions]);
+
+  // 接続線を計算（円状配置用）
   const connections = useMemo(() => {
     const lines = [];
     SKILL_TREE.forEach(skill => {
@@ -167,9 +265,26 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
         const reqPos = nodePositions[reqId];
         const skillPos = nodePositions[skill.id];
         if (reqPos && skillPos) {
+          // ノードの中心座標を計算
+          const fromX = reqPos.x + reqPos.size / 2;
+          const fromY = reqPos.y + reqPos.size / 2;
+          const toX = skillPos.x + skillPos.size / 2;
+          const toY = skillPos.y + skillPos.size / 2;
+          
+          // 角度を計算して円周上の接点を求める
+          const angleFrom = Math.atan2(toY - fromY, toX - fromX);
+          const angleTo = Math.atan2(fromY - toY, fromX - toX);
+          
+          const nodeRadius = reqPos.size / 2;
+          const fromEdgeX = fromX + Math.cos(angleFrom) * nodeRadius;
+          const fromEdgeY = fromY + Math.sin(angleFrom) * nodeRadius;
+          
+          const toEdgeX = toX + Math.cos(angleTo) * nodeRadius;
+          const toEdgeY = toY + Math.sin(angleTo) * nodeRadius;
+          
           lines.push({
-            from: { x: reqPos.x + reqPos.size / 2, y: reqPos.y + reqPos.size },
-            to: { x: skillPos.x + skillPos.size / 2, y: skillPos.y },
+            from: { x: fromEdgeX, y: fromEdgeY },
+            to: { x: toEdgeX, y: toEdgeY },
             fromId: reqId,
             toId: skill.id,
             learned: getSkillLevel(reqId) >= 1 && getSkillLevel(skill.id) >= 1
@@ -207,48 +322,52 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
         className="flex-1 relative overflow-hidden bg-gray-950 rounded-lg border border-gray-700"
         onMouseDown={handleMouseDown}
         onMouseLeave={handleMouseLeave}
+        onWheel={handleWheel}
         style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
-        <svg
-          className="absolute inset-0 pointer-events-none"
-          style={{ width: '100%', height: '100%' }}
-        >
-          {/* 接続線 */}
-          {connections.map((line, idx) => (
-            <line
-              key={`${line.fromId}-${line.toId}-${idx}`}
-              x1={line.from.x + pan.x}
-              y1={line.from.y + pan.y}
-              x2={line.to.x + pan.x}
-              y2={line.to.y + pan.y}
-              stroke={line.learned ? '#10b981' : '#4b5563'}
-              strokeWidth="2"
-              strokeDasharray={line.learned ? '0' : '5,5'}
-              markerEnd="url(#arrowhead)"
-            />
-          ))}
-          <defs>
-            <marker
-              id="arrowhead"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
-              orient="auto"
-            >
-              <polygon points="0 0, 10 3, 0 6" fill="#4b5563" />
-            </marker>
-          </defs>
-        </svg>
-        
-        {/* スキルノード */}
         <div
-          className="absolute"
+          className="absolute inset-0"
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px)`,
-            willChange: 'transform'
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: '0 0',
+            willChange: 'transform',
           }}
         >
+          <svg
+            className="absolute pointer-events-none"
+            style={{ 
+              width: `${svgBounds.width}px`, 
+              height: `${svgBounds.height}px`, 
+              zIndex: 1,
+              left: `${svgBounds.x}px`,
+              top: `${svgBounds.y}px`
+            }}
+            viewBox={`${svgBounds.x} ${svgBounds.y} ${svgBounds.width} ${svgBounds.height}`}
+            preserveAspectRatio="none"
+          >
+            {/* 接続線 */}
+            {connections.map((line, idx) => (
+              <line
+                key={`${line.fromId}-${line.toId}-${idx}`}
+                x1={line.from.x}
+                y1={line.from.y}
+                x2={line.to.x}
+                y2={line.to.y}
+                stroke={line.learned ? '#10b981' : '#4b5563'}
+                strokeWidth="2"
+                strokeDasharray={line.learned ? '0' : '5,5'}
+              />
+            ))}
+          </svg>
+          
+          {/* スキルノード */}
+          <div
+            className="absolute"
+            style={{
+              willChange: 'transform',
+              zIndex: 2
+            }}
+          >
           {SKILL_TREE.map(skill => {
             const pos = nodePositions[skill.id];
             if (!pos) return null;
@@ -269,18 +388,19 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
                 key={skill.id}
                 className={`absolute rounded-lg transition-all group ${
                   isLearned
-                    ? 'bg-green-900/40 shadow-lg shadow-green-500/20'
+                    ? 'bg-green-900 shadow-lg shadow-green-500/20'
                     : canLearn
                       ? `${getCategoryColor(skill.category)} hover:shadow-lg hover:scale-110 cursor-pointer border-2`
                       : isUnlocked
-                        ? 'bg-gray-800/40 border-gray-600 opacity-60 border-2'
-                        : 'bg-gray-900/40 border-gray-700 opacity-30 border-2'
+                        ? 'bg-gray-800 border-gray-600 border-2'
+                        : 'bg-gray-900 border-gray-700 border-2'
                 }`}
                 style={{
                   left: `${pos.x}px`,
                   top: `${pos.y}px`,
                   width: `${pos.size}px`,
-                  height: `${pos.size}px`
+                  height: `${pos.size}px`,
+                  zIndex: 10
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -312,6 +432,7 @@ export const SkillTree = ({ learnedSkills, skillPoints, onLearnSkill, playerLeve
               </div>
             );
           })}
+          </div>
         </div>
         
         {/* ツールチップ */}

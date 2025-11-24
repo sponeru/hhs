@@ -114,7 +114,7 @@ export const useBattle = ({
         }
     }
     
-    const stoneRate = isBoss ? 0.4 : 0.05;
+    const stoneRate = isBoss ? 1.0 : 0.05;
     if (Math.random() < stoneRate && stones.length < MAX_STONES) {
         const stone = generateMagicStone(floor + (isBoss ? 1 : 0));
         setStones(prev => [...prev, stone]);

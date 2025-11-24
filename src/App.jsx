@@ -200,6 +200,9 @@ export default function HackSlashGame() {
       res_fire: 0, res_ice: 0, res_thunder: 0, res_light: 0, res_dark: 0,
       cdSpeed: 0, dmgMult: 0, hpRegen: 0, evade: 0, // evade: 回避率
       skillLevel_fire: 0, skillLevel_ice: 0, skillLevel_thunder: 0, skillLevel_light: 0, skillLevel_dark: 0,
+      // 新しい効果タイプ
+      critDmg_mult: 0, dmg_mult: 0, skill_power: 0, equip_power: 0, mpRegen: 0,
+      fire_dmg: 0, ice_dmg: 0, thunder_dmg: 0, light_dmg: 0, dark_dmg: 0, all_element_dmg: 0,
     };
     
     let globalHpMult = 0;
@@ -363,6 +366,24 @@ export default function HackSlashGame() {
             // 最大MPの割合上昇（後で適用）
             stats.maxMp_mult = (stats.maxMp_mult || 0) + value;
           }
+          else if (effect === 'hp_regen') stats.hpRegen += value;
+          else if (effect === 'mpRegen') stats.mpRegen = (stats.mpRegen || 0) + value;
+          else if (effect === 'critDmg_mult') stats.critDmg_mult = (stats.critDmg_mult || 0) + value;
+          else if (effect === 'dmg_mult') stats.dmg_mult = (stats.dmg_mult || 0) + value;
+          else if (effect === 'skill_power') stats.skill_power = (stats.skill_power || 0) + value;
+          else if (effect === 'equip_power') stats.equip_power = (stats.equip_power || 0) + value;
+          else if (effect === 'fire_dmg') stats.fire_dmg = (stats.fire_dmg || 0) + value;
+          else if (effect === 'ice_dmg') stats.ice_dmg = (stats.ice_dmg || 0) + value;
+          else if (effect === 'thunder_dmg') stats.thunder_dmg = (stats.thunder_dmg || 0) + value;
+          else if (effect === 'light_dmg') stats.light_dmg = (stats.light_dmg || 0) + value;
+          else if (effect === 'dark_dmg') stats.dark_dmg = (stats.dark_dmg || 0) + value;
+          else if (effect === 'all_element_dmg') {
+            stats.fire_dmg = (stats.fire_dmg || 0) + value;
+            stats.ice_dmg = (stats.ice_dmg || 0) + value;
+            stats.thunder_dmg = (stats.thunder_dmg || 0) + value;
+            stats.light_dmg = (stats.light_dmg || 0) + value;
+            stats.dark_dmg = (stats.dark_dmg || 0) + value;
+          }
           
           // ボーナス効果
           if (levelData.bonus) {
@@ -381,8 +402,42 @@ export default function HackSlashGame() {
               stats.res_dark += bonusValue;
             }
             else if (bonusEffect === 'hp_mult') stats.hp = Math.floor(stats.hp * (1 + bonusValue));
+            else if (bonusEffect === 'def_mult') stats.def = Math.floor(stats.def * (1 + bonusValue));
             else if (bonusEffect === 'expMult') stats.expMult += bonusValue;
             else if (bonusEffect === 'critDmg') stats.critDmg += bonusValue;
+            else if (bonusEffect === 'critDmg_mult') stats.critDmg_mult = (stats.critDmg_mult || 0) + bonusValue;
+            else if (bonusEffect === 'maxMp_mult') stats.maxMp_mult = (stats.maxMp_mult || 0) + bonusValue;
+            else if (bonusEffect === 'skill_power') stats.skill_power = (stats.skill_power || 0) + bonusValue;
+            else if (bonusEffect === 'dmg_mult') stats.dmg_mult = (stats.dmg_mult || 0) + bonusValue;
+            else if (bonusEffect === 'hp_regen') stats.hpRegen += bonusValue;
+            else if (bonusEffect === 'str') stats.str = (stats.str || 0) + bonusValue;
+            else if (bonusEffect === 'dex') stats.dex = (stats.dex || 0) + bonusValue;
+            else if (bonusEffect === 'int') stats.int = (stats.int || 0) + bonusValue;
+          }
+          
+          // ボーナス2効果（bonus2が存在する場合）
+          if (levelData.bonus2) {
+            const bonus2Effect = levelData.bonus2.effect;
+            const bonus2Value = levelData.bonus2.value;
+            if (bonus2Effect === 'res_fire') stats.res_fire += bonus2Value;
+            else if (bonus2Effect === 'res_ice') stats.res_ice += bonus2Value;
+            else if (bonus2Effect === 'res_thunder') stats.res_thunder += bonus2Value;
+            else if (bonus2Effect === 'res_light') stats.res_light += bonus2Value;
+            else if (bonus2Effect === 'res_dark') stats.res_dark += bonus2Value;
+            else if (bonus2Effect === 'res_all') {
+              stats.res_fire += bonus2Value;
+              stats.res_ice += bonus2Value;
+              stats.res_thunder += bonus2Value;
+              stats.res_light += bonus2Value;
+              stats.res_dark += bonus2Value;
+            }
+            else if (bonus2Effect === 'hp_mult') stats.hp = Math.floor(stats.hp * (1 + bonus2Value));
+            else if (bonus2Effect === 'def_mult') stats.def = Math.floor(stats.def * (1 + bonus2Value));
+            else if (bonus2Effect === 'critDmg_mult') stats.critDmg_mult = (stats.critDmg_mult || 0) + bonus2Value;
+            else if (bonus2Effect === 'hp_regen') stats.hpRegen += bonus2Value;
+            else if (bonus2Effect === 'str') stats.str = (stats.str || 0) + bonus2Value;
+            else if (bonus2Effect === 'dex') stats.dex = (stats.dex || 0) + bonus2Value;
+            else if (bonus2Effect === 'int') stats.int = (stats.int || 0) + bonus2Value;
           }
           
           // ペナルティ効果
@@ -794,7 +849,7 @@ export default function HackSlashGame() {
           }
       }
       
-      const stoneRate = isBoss ? 0.4 : 0.05;
+      const stoneRate = isBoss ? 1.0 : 0.05;
       if (Math.random() < stoneRate && stones.length < MAX_STONES) {
           const stone = generateMagicStone(floor + (isBoss ? 1 : 0));
           setStones(prev => [...prev, stone]);

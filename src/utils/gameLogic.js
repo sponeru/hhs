@@ -77,9 +77,17 @@ export const generateOptions = (rarityKey, power, equipmentType = null, dungeonM
   // 複合オプションをプールに追加（装備タイプに応じてフィルタリング）
   const availableCompositeOptions = COMPOSITE_OPTIONS.filter(composite => {
     // 複合オプションの各タイプが装備タイプのプールに含まれているかチェック
+    // 装備タイプが指定されている場合は、そのプールのみをチェック
+    // 装備タイプが指定されていない場合は、BASIC_OPTIONSもチェック
     return composite.compositeTypes.every(compType => {
-      return pool.some(opt => opt.type === compType) || 
-             BASIC_OPTIONS.some(opt => opt.type === compType);
+      if (equipmentType && EQUIPMENT_TYPE_OPTIONS[equipmentType]) {
+        // 装備タイプが指定されている場合は、そのプールのみをチェック
+        return pool.some(opt => opt.type === compType);
+      } else {
+        // 装備タイプが指定されていない場合は、BASIC_OPTIONSもチェック
+        return pool.some(opt => opt.type === compType) || 
+               BASIC_OPTIONS.some(opt => opt.type === compType);
+      }
     });
   });
   pool = [...pool, ...availableCompositeOptions];
